@@ -30,6 +30,7 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
     category: "",
     deadline: "",
     commitmentAmount: "",
+    upiId: "",
     mode: "normal"
   });
   const [aiBreakdown, setAiBreakdown] = useState<string[]>([]);
@@ -57,6 +58,14 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
       toast({
         title: "Error",
         description: "Please enter a commitment amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!goalData.upiId) {
+      toast({
+        title: "Error",
+        description: "Please enter your UPI ID for money back",
         variant: "destructive",
       });
       return;
@@ -108,6 +117,7 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
         category: "",
         deadline: "",
         commitmentAmount: "",
+        upiId: "",
         mode: "normal"
       });
       setStep(1);
@@ -315,6 +325,19 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
                           />
                         </div>
                       </div>
+
+                      <div>
+                        <Label htmlFor="upi-id">Your UPI ID (for money back)</Label>
+                        <Input
+                          id="upi-id"
+                          placeholder="e.g., yourname@paytm, yourname@googlepay"
+                          value={goalData.upiId}
+                          onChange={(e) => setGoalData({...goalData, upiId: e.target.value})}
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          We'll send your money back (plus bonus) to this UPI ID when you complete your goal
+                        </p>
+                      </div>
                       
                       <div>
                         <Label>Commitment Mode</Label>
@@ -363,7 +386,7 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
                     </Button>
                     <Button 
                       onClick={handlePayNow}
-                      disabled={!goalData.commitmentAmount}
+                      disabled={!goalData.commitmentAmount || !goalData.upiId}
                       className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                     >
                       Pay Commitment Amount
@@ -380,6 +403,14 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
                     <p className="text-gray-600">
                       Scan the QR code below to pay your commitment amount of ₹{goalData.commitmentAmount}
                     </p>
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        💰 <strong>Money back UPI:</strong> {goalData.upiId}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        We'll send your refund + bonus to this UPI ID when you complete your goal
+                      </p>
+                    </div>
                   </div>
 
                   <PaymentQRCode 
