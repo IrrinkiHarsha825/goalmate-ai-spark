@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, DollarSign, Target, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, DollarSign, Target, Trash2, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +61,33 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
     fetchGoals();
   }, [user, refreshTrigger]);
 
+  const updateGoalProgress = async (goalId: string, newAmount: number) => {
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .update({ current_amount: newAmount })
+        .eq('id', goalId);
+
+      if (error) throw error;
+
+      setGoals(goals.map(goal => 
+        goal.id === goalId ? { ...goal, current_amount: newAmount } : goal
+      ));
+
+      toast({
+        title: "Progress Updated!",
+        description: `Financial progress has been updated to $${newAmount}`,
+      });
+    } catch (error) {
+      console.error('Error updating goal progress:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update progress",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteGoal = async (goalId: string) => {
     try {
       const { error } = await supabase
@@ -117,6 +143,9 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
     setTasksRefreshTrigger(prev => prev + 1);
   };
 
+  const totalEarned = goals.reduce((sum, goal) => sum + (goal.current_amount || 0), 0);
+  const totalTarget = goals.reduce((sum, goal) => sum + (goal.target_amount || 0), 0);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -137,6 +166,42 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Financial Summary Card */}
+      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <CardHeader>
+          <CardTitle className="flex items-center text-green-800">
+            <TrendingUp className="h-6 w-6 mr-2" />
+            Financial Progress Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">${totalEarned.toLocaleString()}</div>
+              <div className="text-sm text-gray-600">Total Earned</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">${totalTarget.toLocaleString()}</div>
+              <div className="text-sm text-gray-600">Total Target</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {totalTarget > 0 ? Math.round((totalEarned / totalTarget) * 100) : 0}%
+              </div>
+              <div className="text-sm text-gray-600">Overall Progress</div>
+            </div>
+          </div>
+          {totalTarget > 0 && (
+            <div className="mt-4">
+              <Progress 
+                value={totalTarget > 0 ? (totalEarned / totalTarget) * 100 : 0} 
+                className="h-3"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Your Goals</h2>
         <Badge variant="outline" className="text-sm">
@@ -191,9 +256,9 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center">
                         <DollarSign className="h-4 w-4 mr-1" />
-                        Progress
+                        Money Progress
                       </span>
-                      <span>
+                      <span className="font-semibold text-green-600">
                         ${goal.current_amount || 0} / ${goal.target_amount}
                       </span>
                     </div>
@@ -201,6 +266,21 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
                       value={calculateProgress(goal.current_amount, goal.target_amount)} 
                       className="h-2"
                     />
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const amount = prompt('Enter new progress amount:', (goal.current_amount || 0).toString());
+                          if (amount && !isNaN(Number(amount))) {
+                            updateGoalProgress(goal.id, Number(amount));
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        Update Progress
+                      </Button>
+                    </div>
                   </div>
                 )}
 
