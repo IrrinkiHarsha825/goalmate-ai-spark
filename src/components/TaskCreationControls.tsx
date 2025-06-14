@@ -45,7 +45,7 @@ export const TaskCreationControls = ({
       <div className="space-y-4">
         <div className="text-center py-6 bg-gray-50 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 mb-2">How would you like to create tasks?</h3>
-          <p className="text-gray-600 mb-4">Task rewards will be distributed from your goal target amount based on difficulty</p>
+          <p className="text-gray-600 mb-4">Your total commitment amount will be divided equally among all tasks</p>
           
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button 
@@ -83,14 +83,14 @@ export const TaskCreationControls = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="easy">Easy (1x weight)</SelectItem>
-                  <SelectItem value="medium">Medium (2x weight)</SelectItem>
-                  <SelectItem value="hard">Hard (3x weight)</SelectItem>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="text-xs text-gray-500">
-              Reward amount will be calculated based on your goal target and task difficulty distribution
+              All tasks will have equal reward amounts regardless of difficulty
             </div>
             <div className="flex gap-2">
               <Button onClick={handleAddManual} disabled={loading || !newTaskTitle.trim()}>
@@ -153,14 +153,14 @@ export const TaskCreationControls = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="easy">Easy (1x weight)</SelectItem>
-                <SelectItem value="medium">Medium (2x weight)</SelectItem>
-                <SelectItem value="hard">Hard (3x weight)</SelectItem>
+                <SelectItem value="easy">Easy</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="hard">Hard</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="text-xs text-gray-500">
-            Reward amount will be calculated based on your goal target and task difficulty distribution
+            All tasks will have equal reward amounts regardless of difficulty
           </div>
           <div className="flex gap-2">
             <Button onClick={handleAddManual} disabled={loading || !newTaskTitle.trim()}>

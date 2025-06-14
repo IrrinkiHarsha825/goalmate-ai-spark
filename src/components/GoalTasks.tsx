@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
@@ -44,24 +45,24 @@ export const GoalTasks = ({
   const [aiLoading, setAiLoading] = useState(false);
   const { toast } = useToast();
 
-  // Calculate reward per task by dividing commitment amount by number of tasks
-  const calculateTaskReward = (totalTasks: number, commitmentAmount: number) => {
-    if (!commitmentAmount || totalTasks === 0) {
+  // Calculate equal reward per task by dividing total commitment by number of tasks
+  const calculateEqualTaskReward = (totalTasks: number, totalCommitment: number) => {
+    if (!totalCommitment || totalTasks === 0) {
       return 25; // Default fallback amount
     }
-    return Math.round(commitmentAmount / totalTasks);
+    return Math.round(totalCommitment / totalTasks);
   };
 
   const recalculateAllTaskRewards = async (currentTasks: Task[]) => {
     if (!commitmentAmount || currentTasks.length === 0) return;
 
     try {
-      const rewardPerTask = calculateTaskReward(currentTasks.length, commitmentAmount);
+      const equalRewardPerTask = calculateEqualTaskReward(currentTasks.length, commitmentAmount);
       
       for (const task of currentTasks) {
         const { error } = await supabase
           .from('tasks')
-          .update({ reward_amount: rewardPerTask })
+          .update({ reward_amount: equalRewardPerTask })
           .eq('id', task.id);
 
         if (error) throw error;
@@ -69,7 +70,7 @@ export const GoalTasks = ({
 
       // Update local state
       setTasks(prevTasks => 
-        prevTasks.map(task => ({ ...task, reward_amount: rewardPerTask }))
+        prevTasks.map(task => ({ ...task, reward_amount: equalRewardPerTask }))
       );
     } catch (error) {
       console.error('Error recalculating task rewards:', error);
@@ -100,14 +101,13 @@ export const GoalTasks = ({
   }, [goalId, commitmentAmount]);
 
   const checkAndUpdateMilestones = async (newCurrentAmount: number) => {
-    if (!goalTargetAmount) return;
+    if (!commitmentAmount) return;
 
-    const progressPercentage = (newCurrentAmount / goalTargetAmount) * 100;
+    const progressPercentage = (newCurrentAmount / commitmentAmount) * 100;
     const milestones = [25, 50, 75, 100];
 
     for (const milestone of milestones) {
       if (progressPercentage >= milestone) {
-        // For now, just show toast until database is updated
         const milestoneReward = Math.round(commitmentAmount * 0.25);
         
         toast({
@@ -159,7 +159,13 @@ export const GoalTasks = ({
           .delete()
           .eq('id', taskId);
 
-        setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+        const remainingTasks = tasks.filter(t => t.id !== taskId);
+        setTasks(remainingTasks);
+
+        // Recalculate rewards for remaining tasks
+        if (remainingTasks.length > 0 && commitmentAmount) {
+          await recalculateAllTaskRewards(remainingTasks);
+        }
 
         // Check for milestone achievements
         await checkAndUpdateMilestones(newCurrentAmount);
@@ -210,14 +216,14 @@ export const GoalTasks = ({
 
       const newTasks: Task[] = [];
       const totalTasksAfterAdd = tasks.length + aiGeneratedTasks.length;
-      const rewardPerTask = calculateTaskReward(totalTasksAfterAdd, commitmentAmount);
+      const equalRewardPerTask = calculateEqualTaskReward(totalTasksAfterAdd, commitmentAmount);
 
       for (const task of aiGeneratedTasks) {
         const taskData: TaskInsert = {
           goal_id: goalId,
           title: task.title,
           difficulty: task.difficulty,
-          reward_amount: rewardPerTask,
+          reward_amount: equalRewardPerTask,
           completed: false
         };
 
@@ -240,7 +246,7 @@ export const GoalTasks = ({
 
       toast({
         title: "AI Tasks Generated",
-        description: `Generated ${aiGeneratedTasks.length} tasks with equally distributed rewards`,
+        description: `Generated ${aiGeneratedTasks.length} tasks with $${equalRewardPerTask} each`,
       });
     } catch (error) {
       console.error('Error generating AI tasks:', error);
@@ -258,13 +264,13 @@ export const GoalTasks = ({
     setLoading(true);
     try {
       const totalTasksAfterAdd = tasks.length + 1;
-      const rewardPerTask = calculateTaskReward(totalTasksAfterAdd, commitmentAmount);
+      const equalRewardPerTask = calculateEqualTaskReward(totalTasksAfterAdd, commitmentAmount);
       
       const taskData: TaskInsert = {
         goal_id: goalId,
         title,
         difficulty,
-        reward_amount: rewardPerTask,
+        reward_amount: equalRewardPerTask,
         completed: false
       };
 
@@ -285,7 +291,7 @@ export const GoalTasks = ({
       
       toast({
         title: "Task Added",
-        description: `Task added with $${rewardPerTask} reward (equally distributed)`,
+        description: `Task added with $${equalRewardPerTask} reward (equal distribution)`,
       });
     } catch (error) {
       console.error('Error adding task:', error);
@@ -320,9 +326,11 @@ export const GoalTasks = ({
         await recalculateAllTaskRewards(updatedTasks);
       }
       
+      const newRewardAmount = updatedTasks.length > 0 ? calculateEqualTaskReward(updatedTasks.length, commitmentAmount) : 0;
+      
       toast({
         title: "Task Deleted",
-        description: "Task removed and rewards redistributed equally",
+        description: `Task removed. Each remaining task now worth $${newRewardAmount}`,
       });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -366,6 +374,7 @@ export const GoalTasks = ({
   };
 
   const totalTasks = tasks.length;
+  const rewardPerTask = totalTasks > 0 ? calculateEqualTaskReward(totalTasks, commitmentAmount) : 0;
 
   return (
     <div className="space-y-4">
@@ -375,17 +384,17 @@ export const GoalTasks = ({
             <span>Tasks for "{goalTitle}"</span>
             <div className="flex items-center gap-4 text-sm font-normal">
               <span className="text-gray-600">
-                {totalTasks} remaining tasks
+                {totalTasks} tasks × ${rewardPerTask} each
               </span>
               <span className="text-green-600 flex items-center">
                 <DollarSign className="h-4 w-4 mr-1" />
-                ${goalCurrentAmount} {goalTargetAmount ? `/ $${goalTargetAmount}` : ''} earned
+                ${goalCurrentAmount} / ${commitmentAmount} earned
               </span>
             </div>
           </CardTitle>
-          {goalTargetAmount && (
+          {commitmentAmount > 0 && (
             <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks with proof verification to earn rewards! Money is divided equally between all tasks.
+              💡 Complete tasks with proof verification to earn rewards! ${commitmentAmount} total is divided equally between all {totalTasks || 'your'} tasks.
             </div>
           )}
         </CardHeader>
@@ -410,7 +419,7 @@ export const GoalTasks = ({
           <TaskProgressDisplay 
             tasks={tasks} 
             goalCurrentAmount={goalCurrentAmount}
-            goalTargetAmount={goalTargetAmount}
+            goalTargetAmount={commitmentAmount}
           />
         </CardContent>
       </Card>
@@ -420,7 +429,7 @@ export const GoalTasks = ({
         <MilestoneProgress
           goalId={goalId}
           currentProgress={goalCurrentAmount}
-          targetAmount={goalTargetAmount || 0}
+          targetAmount={commitmentAmount}
           totalEarned={goalCurrentAmount}
         />
       )}
