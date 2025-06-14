@@ -1,13 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, DollarSign, Target, Trash2 } from "lucide-react";
+import { Calendar, DollarSign, Target, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { GoalTasks } from "./GoalTasks";
 
 interface Goal {
   id: string;
@@ -27,6 +27,7 @@ interface GoalsDisplayProps {
 export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -106,6 +107,10 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
     return Math.min((current / target) * 100, 100);
   };
 
+  const toggleGoalExpansion = (goalId: string) => {
+    setExpandedGoal(expandedGoal === goalId ? null : goalId);
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -135,59 +140,80 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {goals.map((goal) => (
-          <Card key={goal.id} className="border-purple-100 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg line-clamp-2">{goal.title}</CardTitle>
-                  <Badge className={`mt-2 ${getStatusColor(goal.status)}`}>
-                    {goal.status}
-                  </Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteGoal(goal.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              <CardDescription className="line-clamp-3">
-                {goal.description}
-              </CardDescription>
-
-              {goal.target_amount && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center">
-                      <DollarSign className="h-4 w-4 mr-1" />
-                      Progress
-                    </span>
-                    <span>
-                      ${goal.current_amount || 0} / ${goal.target_amount}
-                    </span>
+          <div key={goal.id} className="space-y-4">
+            <Card className="border-purple-100 hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg line-clamp-2">{goal.title}</CardTitle>
+                    <Badge className={`mt-2 ${getStatusColor(goal.status)}`}>
+                      {goal.status}
+                    </Badge>
                   </div>
-                  <Progress 
-                    value={calculateProgress(goal.current_amount, goal.target_amount)} 
-                    className="h-2"
-                  />
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleGoalExpansion(goal.id)}
+                      className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                    >
+                      {expandedGoal === goal.id ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteGoal(goal.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              )}
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                <CardDescription className="line-clamp-3">
+                  {goal.description}
+                </CardDescription>
 
-              <div className="flex items-center text-sm text-gray-600">
-                <Calendar className="h-4 w-4 mr-2" />
-                <span>Deadline: {formatDate(goal.deadline)}</span>
-              </div>
+                {goal.target_amount && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center">
+                        <DollarSign className="h-4 w-4 mr-1" />
+                        Progress
+                      </span>
+                      <span>
+                        ${goal.current_amount || 0} / ${goal.target_amount}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={calculateProgress(goal.current_amount, goal.target_amount)} 
+                      className="h-2"
+                    />
+                  </div>
+                )}
 
-              <div className="text-xs text-gray-500">
-                Created: {formatDate(goal.created_at)}
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Deadline: {formatDate(goal.deadline)}</span>
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  Created: {formatDate(goal.created_at)}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Show tasks when goal is expanded */}
+            {expandedGoal === goal.id && (
+              <GoalTasks goalId={goal.id} goalTitle={goal.title} />
+            )}
+          </div>
         ))}
       </div>
     </div>
