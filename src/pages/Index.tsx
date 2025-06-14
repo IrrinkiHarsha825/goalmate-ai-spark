@@ -1,17 +1,39 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Target, Brain, Shield, Users, TrendingUp, Clock, Gift, Zap } from "lucide-react";
+import { ArrowRight, Target, Brain, Shield, Users, TrendingUp, Clock, Gift, Zap, LogOut } from "lucide-react";
 import { HeroSection } from "@/components/HeroSection";
 import { FeatureCard } from "@/components/FeatureCard";
 import { StatsSection } from "@/components/StatsSection";
 import { TestimonialSection } from "@/components/TestimonialSection";
 import { GoalCreationModal } from "@/components/GoalCreationModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out",
+        variant: "destructive",
+      });
+    }
+  };
 
   const features = [
     {
@@ -46,6 +68,17 @@ const Index = () => {
     }
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <p className="text-lg text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
       {/* Navigation */}
@@ -62,22 +95,49 @@ const Index = () => {
               <a href="#features" className="text-gray-700 hover:text-purple-600 transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-700 hover:text-purple-600 transition-colors">How It Works</a>
               <a href="#pricing" className="text-gray-700 hover:text-purple-600 transition-colors">Pricing</a>
-              <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50">
-                Sign In
-              </Button>
-              <Button 
-                onClick={() => setShowGoalModal(true)}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              >
-                Start Your Journey
-              </Button>
+              
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-600">Welcome, {user.email}</span>
+                  <Button 
+                    onClick={() => setShowGoalModal(true)}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    Create Goal
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/auth')}
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    onClick={() => navigate('/auth')}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    Start Your Journey
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <HeroSection onStartJourney={() => setShowGoalModal(true)} />
+      <HeroSection onStartJourney={() => user ? setShowGoalModal(true) : navigate('/auth')} />
 
       {/* Stats Section */}
       <StatsSection />
@@ -171,7 +231,7 @@ const Index = () => {
           </p>
           <Button 
             size="lg"
-            onClick={() => setShowGoalModal(true)}
+            onClick={() => user ? setShowGoalModal(true) : navigate('/auth')}
             className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-3"
           >
             Start Your First Goal
