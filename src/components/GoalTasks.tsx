@@ -16,10 +16,11 @@ interface GoalTasksProps {
   goalTitle: string;
   goalDescription?: string;
   goalTargetAmount?: number;
+  goalCurrentAmount?: number;
   onTaskUpdate?: () => void;
 }
 
-export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount, onTaskUpdate }: GoalTasksProps) => {
+export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount, goalCurrentAmount = 0, onTaskUpdate }: GoalTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -81,7 +82,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
       }
 
       setTasks(updatedTasks);
-      await updateGoalProgress(updatedTasks);
     } catch (error) {
       console.error('Error recalculating task rewards:', error);
     }
@@ -101,8 +101,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
       // Recalculate rewards based on current target amount
       if (data && data.length > 0 && goalTargetAmount) {
         await recalculateAllTaskRewards(data);
-      } else if (data && data.length > 0) {
-        await updateGoalProgress(data);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -112,27 +110,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
   useEffect(() => {
     fetchTasks();
   }, [goalId, goalTargetAmount]);
-
-  const updateGoalProgress = async (currentTasks = tasks) => {
-    try {
-      // Calculate total earned from completed tasks
-      const completedTasks = currentTasks.filter(task => task.completed);
-      const totalEarned = completedTasks.reduce((sum, task) => sum + (task.reward_amount || 0), 0);
-
-      console.log(`Updating goal ${goalId} progress to $${totalEarned}`);
-
-      const { error } = await supabase
-        .from('goals')
-        .update({ current_amount: totalEarned })
-        .eq('id', goalId);
-
-      if (error) throw error;
-
-      onTaskUpdate?.();
-    } catch (error) {
-      console.error('Error updating goal progress:', error);
-    }
-  };
 
   const generateAITasks = async () => {
     setAiLoading(true);
@@ -178,8 +155,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
       // Recalculate all task rewards with new distribution
       if (goalTargetAmount) {
         await recalculateAllTaskRewards(updatedTasks);
-      } else {
-        await updateGoalProgress(updatedTasks);
       }
 
       toast({
@@ -226,8 +201,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
       // Recalculate all task rewards with new distribution
       if (goalTargetAmount) {
         await recalculateAllTaskRewards(updatedTasks);
-      } else {
-        await updateGoalProgress(updatedTasks);
       }
       
       toast({
@@ -320,8 +293,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
       // Recalculate remaining task rewards after deletion
       if (goalTargetAmount && updatedTasks.length > 0) {
         await recalculateAllTaskRewards(updatedTasks);
-      } else {
-        await updateGoalProgress(updatedTasks);
       }
       
       toast({
@@ -370,11 +341,8 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
     }
   };
 
-  const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
-  const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
   const totalPossibleReward = tasks.reduce((sum, task) => sum + (task.reward_amount || 0), 0);
-  const totalEarnedReward = tasks.filter(task => task.completed).reduce((sum, task) => sum + (task.reward_amount || 0), 0);
 
   return (
     <Card className="mt-4">
@@ -383,11 +351,11 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
           <span>Tasks for "{goalTitle}"</span>
           <div className="flex items-center gap-4 text-sm font-normal">
             <span className="text-gray-600">
-              {completedTasks}/{totalTasks} completed ({Math.round(progressPercentage)}%)
+              {totalTasks} remaining tasks
             </span>
             <span className="text-green-600 flex items-center">
               <DollarSign className="h-4 w-4 mr-1" />
-              ${totalEarnedReward} / ${totalPossibleReward}
+              ${goalCurrentAmount} {goalTargetAmount ? `/ $${goalTargetAmount}` : ''} earned
             </span>
           </div>
         </CardTitle>
@@ -413,7 +381,11 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
           onDeleteTask={deleteTask}
         />
 
-        <TaskProgressDisplay tasks={tasks} />
+        <TaskProgressDisplay 
+          tasks={tasks} 
+          goalCurrentAmount={goalCurrentAmount}
+          goalTargetAmount={goalTargetAmount}
+        />
       </CardContent>
     </Card>
   );

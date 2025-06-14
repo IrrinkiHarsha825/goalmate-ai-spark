@@ -54,6 +54,7 @@ export const GoalsGrid = ({
                 goalId={goal.id} 
                 goalTitle={goal.title}
                 goalTargetAmount={goal.target_amount || undefined}
+                goalCurrentAmount={goal.current_amount || 0}
                 onTaskUpdate={onTaskUpdate}
               />
             )}
