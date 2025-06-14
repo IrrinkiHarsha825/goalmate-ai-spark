@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Brain, DollarSign, Calendar, Target, Zap, Shield } from "lucide-react";
+import { Brain, DollarSign, Calendar, Target, Zap, Shield, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { PaymentQRCode } from "./PaymentQRCode";
 
 interface GoalCreationModalProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface GoalCreationModalProps {
 export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCreationModalProps) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
   const [goalData, setGoalData] = useState({
     title: "",
     description: "",
@@ -48,6 +50,25 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
     } else if (step === 2) {
       setStep(3);
     }
+  };
+
+  const handlePayNow = () => {
+    if (!goalData.commitmentAmount) {
+      toast({
+        title: "Error",
+        description: "Please enter a commitment amount",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowQRCode(true);
+  };
+
+  const handlePaymentComplete = () => {
+    toast({
+      title: "Payment Instructions",
+      description: "After completing the payment, click 'Confirm Payment' to create your goal.",
+    });
   };
 
   const handleCreateGoal = async () => {
@@ -90,6 +111,7 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
         mode: "normal"
       });
       setStep(1);
+      setShowQRCode(false);
       onOpenChange(false);
       
       // Notify parent component that a goal was created
@@ -258,94 +280,139 @@ export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCre
           {/* Step 3: Commitment Setup */}
           {step === 3 && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Shield className="mr-2 h-5 w-5 text-purple-600" />
-                    Commitment System
-                  </CardTitle>
-                  <CardDescription>
-                    Put money on the line to stay motivated. Get it back (plus bonuses) when you succeed.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="deadline">Deadline</Label>
-                      <Input
-                        id="deadline"
-                        type="date"
-                        value={goalData.deadline}
-                        onChange={(e) => setGoalData({...goalData, deadline: e.target.value})}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="commitment">Commitment Amount ($)</Label>
-                      <Input
-                        id="commitment"
-                        type="number"
-                        placeholder="e.g., 200"
-                        value={goalData.commitmentAmount}
-                        onChange={(e) => setGoalData({...goalData, commitmentAmount: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Commitment Mode</Label>
-                    <div className="grid md:grid-cols-2 gap-4 mt-2">
-                      <Card 
-                        className={`cursor-pointer transition-all ${
-                          goalData.mode === 'normal' ? 'ring-2 ring-purple-600 bg-purple-50' : 'hover:bg-gray-50'
-                        }`}
-                        onClick={() => setGoalData({...goalData, mode: 'normal'})}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-medium">Normal Mode</h3>
-                            <Badge className="bg-green-100 text-green-800">Flexible</Badge>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Can opt-out anytime with partial refund based on progress. Lower risk, moderate rewards.
-                          </p>
-                        </CardContent>
-                      </Card>
+              {!showQRCode ? (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Shield className="mr-2 h-5 w-5 text-purple-600" />
+                        Commitment System
+                      </CardTitle>
+                      <CardDescription>
+                        Put money on the line to stay motivated. Get it back (plus bonuses) when you succeed.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="deadline">Deadline</Label>
+                          <Input
+                            id="deadline"
+                            type="date"
+                            value={goalData.deadline}
+                            onChange={(e) => setGoalData({...goalData, deadline: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="commitment">Commitment Amount (₹)</Label>
+                          <Input
+                            id="commitment"
+                            type="number"
+                            placeholder="e.g., 1000"
+                            value={goalData.commitmentAmount}
+                            onChange={(e) => setGoalData({...goalData, commitmentAmount: e.target.value})}
+                          />
+                        </div>
+                      </div>
                       
-                      <Card 
-                        className={`cursor-pointer transition-all ${
-                          goalData.mode === 'hard' ? 'ring-2 ring-purple-600 bg-purple-50' : 'hover:bg-gray-50'
-                        }`}
-                        onClick={() => setGoalData({...goalData, mode: 'hard'})}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-medium">Hard Mode</h3>
-                            <Badge className="bg-red-100 text-red-800">Committed</Badge>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Cannot cancel until deadline. Higher penalties for failure, but bigger rewards for success.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
+                      <div>
+                        <Label>Commitment Mode</Label>
+                        <div className="grid md:grid-cols-2 gap-4 mt-2">
+                          <Card 
+                            className={`cursor-pointer transition-all ${
+                              goalData.mode === 'normal' ? 'ring-2 ring-purple-600 bg-purple-50' : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => setGoalData({...goalData, mode: 'normal'})}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-medium">Normal Mode</h3>
+                                <Badge className="bg-green-100 text-green-800">Flexible</Badge>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                Can opt-out anytime with partial refund based on progress. Lower risk, moderate rewards.
+                              </p>
+                            </CardContent>
+                          </Card>
+                          
+                          <Card 
+                            className={`cursor-pointer transition-all ${
+                              goalData.mode === 'hard' ? 'ring-2 ring-purple-600 bg-purple-50' : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => setGoalData({...goalData, mode: 'hard'})}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-medium">Hard Mode</h3>
+                                <Badge className="bg-red-100 text-red-800">Committed</Badge>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                Cannot cancel until deadline. Higher penalties for failure, but bigger rewards for success.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={() => setStep(2)}>
+                      Back
+                    </Button>
+                    <Button 
+                      onClick={handlePayNow}
+                      disabled={!goalData.commitmentAmount}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      Pay Commitment Amount
+                      <QrCode className="ml-2 h-4 w-4" />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-              
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep(2)}>
-                  Back
-                </Button>
-                <Button 
-                  onClick={handleCreateGoal}
-                  disabled={loading}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                >
-                  {loading ? "Creating..." : "Create Goal & Start Journey"}
-                  <Target className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Complete Your Payment
+                    </h3>
+                    <p className="text-gray-600">
+                      Scan the QR code below to pay your commitment amount of ₹{goalData.commitmentAmount}
+                    </p>
+                  </div>
+
+                  <PaymentQRCode 
+                    amount={goalData.commitmentAmount}
+                    goalTitle={goalData.title}
+                  />
+
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Payment Instructions:</h4>
+                    <ol className="text-sm text-blue-800 space-y-1">
+                      <li>1. Open any UPI app (Google Pay, PhonePe, Paytm)</li>
+                      <li>2. Scan the QR code above</li>
+                      <li>3. Verify the amount: ₹{goalData.commitmentAmount}</li>
+                      <li>4. Complete the payment</li>
+                      <li>5. Click "Confirm Payment" below after payment is done</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={() => setShowQRCode(false)}>
+                      Back to Details
+                    </Button>
+                    <Button 
+                      onClick={handleCreateGoal}
+                      disabled={loading}
+                      className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                    >
+                      {loading ? "Creating Goal..." : "Confirm Payment & Create Goal"}
+                      <Target className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
