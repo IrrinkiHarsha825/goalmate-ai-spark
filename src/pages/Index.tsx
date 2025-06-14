@@ -10,11 +10,13 @@ import { FeatureCard } from "@/components/FeatureCard";
 import { StatsSection } from "@/components/StatsSection";
 import { TestimonialSection } from "@/components/TestimonialSection";
 import { GoalCreationModal } from "@/components/GoalCreationModal";
+import { GoalsDisplay } from "@/components/GoalsDisplay";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalRefreshTrigger, setGoalRefreshTrigger] = useState(0);
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,6 +35,10 @@ const Index = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleGoalCreated = () => {
+    setGoalRefreshTrigger(prev => prev + 1);
   };
 
   const features = [
@@ -136,8 +142,17 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <HeroSection onStartJourney={() => user ? setShowGoalModal(true) : navigate('/auth')} />
+      {/* User Dashboard Section - Only show if user is logged in */}
+      {user && (
+        <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white/30 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto">
+            <GoalsDisplay refreshTrigger={goalRefreshTrigger} />
+          </div>
+        </section>
+      )}
+
+      {/* Hero Section - Show different content based on auth status */}
+      {!user && <HeroSection onStartJourney={() => navigate('/auth')} />}
 
       {/* Stats Section */}
       <StatsSection />
@@ -288,6 +303,7 @@ const Index = () => {
       <GoalCreationModal 
         open={showGoalModal} 
         onOpenChange={setShowGoalModal}
+        onGoalCreated={handleGoalCreated}
       />
     </div>
   );

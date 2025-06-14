@@ -10,14 +10,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Brain, DollarSign, Calendar, Target, Zap, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface GoalCreationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onGoalCreated?: () => void;
 }
 
-export const GoalCreationModal = ({ open, onOpenChange }: GoalCreationModalProps) => {
+export const GoalCreationModal = ({ open, onOpenChange, onGoalCreated }: GoalCreationModalProps) => {
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [goalData, setGoalData] = useState({
     title: "",
     description: "",
@@ -28,6 +32,7 @@ export const GoalCreationModal = ({ open, onOpenChange }: GoalCreationModalProps
   });
   const [aiBreakdown, setAiBreakdown] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleNextStep = () => {
     if (step === 1 && goalData.title && goalData.description) {
@@ -45,13 +50,62 @@ export const GoalCreationModal = ({ open, onOpenChange }: GoalCreationModalProps
     }
   };
 
-  const handleCreateGoal = () => {
-    toast({
-      title: "Goal Created Successfully! 🎉",
-      description: "Your journey starts now. Check your dashboard to begin tracking progress.",
-    });
-    onOpenChange(false);
-    setStep(1);
+  const handleCreateGoal = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create goals",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .insert({
+          user_id: user.id,
+          title: goalData.title,
+          description: goalData.description,
+          target_amount: goalData.commitmentAmount ? parseFloat(goalData.commitmentAmount) : null,
+          deadline: goalData.deadline || null,
+          status: 'active'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Goal Created Successfully! 🎉",
+        description: "Your journey starts now. Check your dashboard to begin tracking progress.",
+      });
+      
+      // Reset form
+      setGoalData({
+        title: "",
+        description: "",
+        category: "",
+        deadline: "",
+        commitmentAmount: "",
+        mode: "normal"
+      });
+      setStep(1);
+      onOpenChange(false);
+      
+      // Notify parent component that a goal was created
+      if (onGoalCreated) {
+        onGoalCreated();
+      }
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create goal. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -285,9 +339,10 @@ export const GoalCreationModal = ({ open, onOpenChange }: GoalCreationModalProps
                 </Button>
                 <Button 
                   onClick={handleCreateGoal}
+                  disabled={loading}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 >
-                  Create Goal & Start Journey
+                  {loading ? "Creating..." : "Create Goal & Start Journey"}
                   <Target className="ml-2 h-4 w-4" />
                 </Button>
               </div>
