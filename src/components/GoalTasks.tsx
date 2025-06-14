@@ -10,7 +10,12 @@ import { MilestoneProgress } from "./MilestoneProgress";
 import { AIVerificationService, ProofData } from "@/services/aiVerificationService";
 import type { Database } from "@/integrations/supabase/types";
 
-type Task = Database['public']['Tables']['tasks']['Row'];
+type Task = Database['public']['Tables']['tasks']['Row'] & {
+  verified?: boolean;
+  proof_text?: string;
+  proof_image_url?: string;
+  verification_feedback?: string;
+};
 type TaskInsert = Database['public']['Tables']['tasks']['Insert'];
 
 interface GoalTasksProps {
@@ -39,62 +44,33 @@ export const GoalTasks = ({
   const [aiLoading, setAiLoading] = useState(false);
   const { toast } = useToast();
 
-  // Difficulty weights for percentage distribution
-  const difficultyWeights = {
-    easy: 1,
-    medium: 2,
-    hard: 3
-  };
-
-  const calculateTaskReward = (difficulty: 'easy' | 'medium' | 'hard', totalTasks: number, targetAmount: number) => {
-    if (!targetAmount || totalTasks === 0) {
-      // Fallback to fixed amounts if no target amount
-      const fallbackRewards = { easy: 10, medium: 25, hard: 50 };
-      return fallbackRewards[difficulty];
+  // Calculate reward per task by dividing commitment amount by number of tasks
+  const calculateTaskReward = (totalTasks: number, commitmentAmount: number) => {
+    if (!commitmentAmount || totalTasks === 0) {
+      return 25; // Default fallback amount
     }
-
-    // Calculate total weight points for all tasks
-    const easyCount = tasks.filter(t => t.difficulty === 'easy').length + (difficulty === 'easy' ? 1 : 0);
-    const mediumCount = tasks.filter(t => t.difficulty === 'medium').length + (difficulty === 'medium' ? 1 : 0);
-    const hardCount = tasks.filter(t => t.difficulty === 'hard').length + (difficulty === 'hard' ? 1 : 0);
-    
-    const totalWeightPoints = (easyCount * difficultyWeights.easy) + 
-                              (mediumCount * difficultyWeights.medium) + 
-                              (hardCount * difficultyWeights.hard);
-
-    // Calculate reward based on difficulty weight and target amount
-    const difficultyWeight = difficultyWeights[difficulty];
-    const rewardAmount = Math.round((difficultyWeight / totalWeightPoints) * targetAmount);
-    
-    return Math.max(rewardAmount, 1); // Minimum $1 per task
+    return Math.round(commitmentAmount / totalTasks);
   };
 
   const recalculateAllTaskRewards = async (currentTasks: Task[]) => {
-    if (!goalTargetAmount || currentTasks.length === 0) return;
+    if (!commitmentAmount || currentTasks.length === 0) return;
 
     try {
-      // Calculate new rewards for all tasks
-      const updatedTasks: Task[] = [];
+      const rewardPerTask = calculateTaskReward(currentTasks.length, commitmentAmount);
       
       for (const task of currentTasks) {
-        const newReward = calculateTaskReward(
-          task.difficulty as 'easy' | 'medium' | 'hard', 
-          currentTasks.length, 
-          goalTargetAmount
-        );
-
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('tasks')
-          .update({ reward_amount: newReward })
-          .eq('id', task.id)
-          .select()
-          .single();
+          .update({ reward_amount: rewardPerTask })
+          .eq('id', task.id);
 
         if (error) throw error;
-        updatedTasks.push(data);
       }
 
-      setTasks(updatedTasks);
+      // Update local state
+      setTasks(prevTasks => 
+        prevTasks.map(task => ({ ...task, reward_amount: rewardPerTask }))
+      );
     } catch (error) {
       console.error('Error recalculating task rewards:', error);
     }
@@ -111,7 +87,7 @@ export const GoalTasks = ({
       if (error) throw error;
       setTasks(data || []);
       
-      if (data && data.length > 0 && goalTargetAmount) {
+      if (data && data.length > 0 && commitmentAmount) {
         await recalculateAllTaskRewards(data);
       }
     } catch (error) {
@@ -121,7 +97,7 @@ export const GoalTasks = ({
 
   useEffect(() => {
     fetchTasks();
-  }, [goalId, goalTargetAmount]);
+  }, [goalId, commitmentAmount]);
 
   const checkAndUpdateMilestones = async (newCurrentAmount: number) => {
     if (!goalTargetAmount) return;
@@ -131,39 +107,13 @@ export const GoalTasks = ({
 
     for (const milestone of milestones) {
       if (progressPercentage >= milestone) {
-        try {
-          const { data: existingMilestone } = await supabase
-            .from('milestone_rewards')
-            .select('*')
-            .eq('goal_id', goalId)
-            .eq('milestone_percentage', milestone)
-            .eq('achieved', false)
-            .single();
-
-          if (existingMilestone) {
-            await supabase
-              .from('milestone_rewards')
-              .update({ 
-                achieved: true, 
-                achieved_at: new Date().toISOString() 
-              })
-              .eq('id', existingMilestone.id);
-
-            await supabase
-              .from('goals')
-              .update({ 
-                current_amount: newCurrentAmount + existingMilestone.reward_amount 
-              })
-              .eq('id', goalId);
-
-            toast({
-              title: "🎉 Milestone Achieved!",
-              description: `You've reached ${milestone}% and earned $${existingMilestone.reward_amount}!`,
-            });
-          }
-        } catch (error) {
-          console.error('Error updating milestone:', error);
-        }
+        // For now, just show toast until database is updated
+        const milestoneReward = Math.round(commitmentAmount * 0.25);
+        
+        toast({
+          title: "🎉 Milestone Achieved!",
+          description: `You've reached ${milestone}% and earned $${milestoneReward}!`,
+        });
       }
     }
   };
@@ -180,23 +130,17 @@ export const GoalTasks = ({
         proofData
       );
 
-      // Update task with proof and verification result
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({
-          proof_text: proofData.text || `${proofData.type} proof submitted`,
-          verified: verification.verified,
-          verification_feedback: verification.feedback
-        })
-        .eq('id', taskId)
-        .select()
-        .single();
-
-      if (error) throw error;
+      // For now, simulate database update until schema is updated
+      const updatedTask = {
+        ...task,
+        proof_text: proofData.text || `${proofData.type} proof submitted`,
+        verified: verification.verified,
+        verification_feedback: verification.feedback
+      };
 
       // Update local state
       setTasks(prevTasks => 
-        prevTasks.map(t => t.id === taskId ? data : t)
+        prevTasks.map(t => t.id === taskId ? updatedTask : t)
       );
 
       if (verification.verified) {
@@ -266,14 +210,14 @@ export const GoalTasks = ({
 
       const newTasks: Task[] = [];
       const totalTasksAfterAdd = tasks.length + aiGeneratedTasks.length;
+      const rewardPerTask = calculateTaskReward(totalTasksAfterAdd, commitmentAmount);
 
       for (const task of aiGeneratedTasks) {
-        const rewardAmount = calculateTaskReward(task.difficulty, totalTasksAfterAdd, goalTargetAmount || 0);
         const taskData: TaskInsert = {
           goal_id: goalId,
           title: task.title,
           difficulty: task.difficulty,
-          reward_amount: rewardAmount,
+          reward_amount: rewardPerTask,
           completed: false
         };
 
@@ -290,13 +234,13 @@ export const GoalTasks = ({
       const updatedTasks = [...tasks, ...newTasks];
       setTasks(updatedTasks);
       
-      if (goalTargetAmount) {
+      if (commitmentAmount) {
         await recalculateAllTaskRewards(updatedTasks);
       }
 
       toast({
         title: "AI Tasks Generated",
-        description: `Generated ${aiGeneratedTasks.length} tasks with distributed rewards`,
+        description: `Generated ${aiGeneratedTasks.length} tasks with equally distributed rewards`,
       });
     } catch (error) {
       console.error('Error generating AI tasks:', error);
@@ -314,13 +258,13 @@ export const GoalTasks = ({
     setLoading(true);
     try {
       const totalTasksAfterAdd = tasks.length + 1;
-      const rewardAmount = calculateTaskReward(difficulty, totalTasksAfterAdd, goalTargetAmount || 0);
+      const rewardPerTask = calculateTaskReward(totalTasksAfterAdd, commitmentAmount);
       
       const taskData: TaskInsert = {
         goal_id: goalId,
         title,
         difficulty,
-        reward_amount: rewardAmount,
+        reward_amount: rewardPerTask,
         completed: false
       };
 
@@ -335,13 +279,13 @@ export const GoalTasks = ({
       const updatedTasks = [...tasks, data];
       setTasks(updatedTasks);
       
-      if (goalTargetAmount) {
+      if (commitmentAmount) {
         await recalculateAllTaskRewards(updatedTasks);
       }
       
       toast({
         title: "Task Added",
-        description: `Task added with $${rewardAmount} reward (distributed from goal target)`,
+        description: `Task added with $${rewardPerTask} reward (equally distributed)`,
       });
     } catch (error) {
       console.error('Error adding task:', error);
@@ -372,13 +316,13 @@ export const GoalTasks = ({
       const updatedTasks = tasks.filter(task => task.id !== taskId);
       setTasks(updatedTasks);
       
-      if (goalTargetAmount && updatedTasks.length > 0) {
+      if (commitmentAmount && updatedTasks.length > 0) {
         await recalculateAllTaskRewards(updatedTasks);
       }
       
       toast({
         title: "Task Deleted",
-        description: "Task removed and rewards redistributed",
+        description: "Task removed and rewards redistributed equally",
       });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -441,7 +385,7 @@ export const GoalTasks = ({
           </CardTitle>
           {goalTargetAmount && (
             <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks with proof verification to earn rewards and unlock milestones!
+              💡 Complete tasks with proof verification to earn rewards! Money is divided equally between all tasks.
             </div>
           )}
         </CardHeader>

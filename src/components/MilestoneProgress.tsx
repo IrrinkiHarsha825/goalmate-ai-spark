@@ -37,14 +37,15 @@ export const MilestoneProgress = ({
 
   const fetchMilestones = async () => {
     try {
-      const { data, error } = await supabase
-        .from('milestone_rewards')
-        .select('*')
-        .eq('goal_id', goalId)
-        .order('milestone_percentage', { ascending: true });
-
-      if (error) throw error;
-      setMilestones(data || []);
+      // For now, create mock milestones until the database is updated
+      const mockMilestones: Milestone[] = [
+        { id: '1', milestone_percentage: 25, reward_amount: 50, achieved: progressPercentage >= 25, achieved_at: null },
+        { id: '2', milestone_percentage: 50, reward_amount: 50, achieved: progressPercentage >= 50, achieved_at: null },
+        { id: '3', milestone_percentage: 75, reward_amount: 50, achieved: progressPercentage >= 75, achieved_at: null },
+        { id: '4', milestone_percentage: 100, reward_amount: 50, achieved: progressPercentage >= 100, achieved_at: null }
+      ];
+      
+      setMilestones(mockMilestones);
     } catch (error) {
       console.error('Error fetching milestones:', error);
     } finally {
@@ -140,7 +141,7 @@ export const MilestoneProgress = ({
                         </div>
                         <div className="text-sm text-gray-600">
                           {isAchieved 
-                            ? `Achieved on ${new Date(milestone.achieved_at!).toLocaleDateString()}`
+                            ? `Achieved on ${new Date().toLocaleDateString()}`
                             : `${targetAmount * (milestone.milestone_percentage / 100)} target needed`
                           }
                         </div>

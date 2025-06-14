@@ -7,7 +7,12 @@ import { DollarSign, Trash2, Shield, CheckCircle, AlertCircle, Clock } from "luc
 import { ProofVerificationModal } from "./ProofVerificationModal";
 import type { Database } from "@/integrations/supabase/types";
 
-type Task = Database['public']['Tables']['tasks']['Row'];
+type Task = Database['public']['Tables']['tasks']['Row'] & {
+  verified?: boolean;
+  proof_text?: string;
+  proof_image_url?: string;
+  verification_feedback?: string;
+};
 
 interface TaskItemProps {
   task: Task;
