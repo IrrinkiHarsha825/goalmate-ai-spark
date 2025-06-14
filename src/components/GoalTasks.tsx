@@ -42,6 +42,11 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       if (error) throw error;
       setTasks(data || []);
+      
+      // Calculate and update goal progress immediately after fetching tasks
+      if (data && data.length > 0) {
+        await updateGoalProgress(data);
+      }
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
@@ -51,11 +56,13 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
     fetchTasks();
   }, [goalId]);
 
-  const updateGoalProgress = async () => {
+  const updateGoalProgress = async (currentTasks = tasks) => {
     try {
       // Calculate total earned from completed tasks
-      const completedTasks = tasks.filter(task => task.completed);
+      const completedTasks = currentTasks.filter(task => task.completed);
       const totalEarned = completedTasks.reduce((sum, task) => sum + (task.reward_amount || 0), 0);
+
+      console.log(`Updating goal ${goalId} progress to $${totalEarned}`);
 
       const { error } = await supabase
         .from('goals')
@@ -64,7 +71,6 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       if (error) throw error;
 
-      console.log(`Updated goal progress to $${totalEarned}`);
       onTaskUpdate?.();
     } catch (error) {
       console.error('Error updating goal progress:', error);
@@ -85,6 +91,8 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
         { title: `Evaluate results and document learnings`, difficulty: 'easy' as const }
       ];
 
+      const newTasks: Task[] = [];
+
       // Add each AI-generated task to the database
       for (const task of aiGeneratedTasks) {
         const rewardAmount = difficultyRewards[task.difficulty];
@@ -103,10 +111,13 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
           .single();
 
         if (error) throw error;
-        setTasks(prev => [...prev, data]);
+        newTasks.push(data);
       }
 
-      onTaskUpdate?.();
+      const updatedTasks = [...tasks, ...newTasks];
+      setTasks(updatedTasks);
+      await updateGoalProgress(updatedTasks);
+
       toast({
         title: "AI Tasks Generated",
         description: `Generated ${aiGeneratedTasks.length} tasks with automatic rewards`,
@@ -143,8 +154,10 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       if (error) throw error;
 
-      setTasks([...tasks, data]);
-      onTaskUpdate?.();
+      const updatedTasks = [...tasks, data];
+      setTasks(updatedTasks);
+      await updateGoalProgress(updatedTasks);
+      
       toast({
         title: "Task Added",
         description: `Task added with $${rewardAmount} reward`,
@@ -170,14 +183,13 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       if (error) throw error;
 
-      setTasks(tasks.map(task => 
+      const updatedTasks = tasks.map(task => 
         task.id === taskId ? { ...task, completed } : task
-      ));
+      );
+      setTasks(updatedTasks);
 
-      // Automatically update goal progress after task completion
-      setTimeout(() => {
-        updateGoalProgress();
-      }, 100);
+      // Update goal progress immediately
+      await updateGoalProgress(updatedTasks);
 
       const task = tasks.find(t => t.id === taskId);
       const rewardAmount = task?.reward_amount || 0;
@@ -207,14 +219,12 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       if (error) throw error;
 
-      setTasks(tasks.filter(task => task.id !== taskId));
+      const updatedTasks = tasks.filter(task => task.id !== taskId);
+      setTasks(updatedTasks);
       
       // Update goal progress after task deletion
-      setTimeout(() => {
-        updateGoalProgress();
-      }, 100);
+      await updateGoalProgress(updatedTasks);
       
-      onTaskUpdate?.();
       toast({
         title: "Task Deleted",
         description: "Task has been removed",
