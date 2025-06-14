@@ -29,10 +29,10 @@ export const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
   return (
     <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
       <Checkbox
-        checked={task.completed}
+        checked={false}
         onCheckedChange={(checked) => onToggle(task.id, !!checked)}
       />
-      <span className={`flex-1 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+      <span className="flex-1">
         {task.title}
       </span>
       <div className="flex items-center gap-2">

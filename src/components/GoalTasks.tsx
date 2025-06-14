@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
@@ -249,35 +248,58 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount
 
   const toggleTask = async (taskId: string, completed: boolean) => {
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ completed })
-        .eq('id', taskId);
-
-      if (error) throw error;
-
-      const updatedTasks = tasks.map(task => 
-        task.id === taskId ? { ...task, completed } : task
-      );
-      setTasks(updatedTasks);
-
-      // Update goal progress immediately
-      await updateGoalProgress(updatedTasks);
-
       const task = tasks.find(t => t.id === taskId);
-      const rewardAmount = task?.reward_amount || 0;
+      if (!task) return;
 
-      toast({
-        title: completed ? "Task Completed!" : "Task Unchecked",
-        description: completed 
-          ? `Great progress! You earned $${rewardAmount}` 
-          : `Task marked as incomplete. $${rewardAmount} removed from progress`,
-      });
+      if (completed) {
+        // When completing a task, delete it from database and add reward to goal
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', taskId);
+
+        if (error) throw error;
+
+        // Update local state by removing the completed task
+        const updatedTasks = tasks.filter(task => task.id !== taskId);
+        setTasks(updatedTasks);
+
+        // Add the reward amount to the goal's current amount
+        const rewardAmount = task.reward_amount || 0;
+        const { data: goalData, error: goalError } = await supabase
+          .from('goals')
+          .select('current_amount')
+          .eq('id', goalId)
+          .single();
+
+        if (goalError) throw goalError;
+
+        const newCurrentAmount = (goalData.current_amount || 0) + rewardAmount;
+
+        const { error: updateError } = await supabase
+          .from('goals')
+          .update({ current_amount: newCurrentAmount })
+          .eq('id', goalId);
+
+        if (updateError) throw updateError;
+
+        // Recalculate rewards for remaining tasks
+        if (goalTargetAmount && updatedTasks.length > 0) {
+          await recalculateAllTaskRewards(updatedTasks);
+        }
+
+        onTaskUpdate?.();
+
+        toast({
+          title: "Task Completed!",
+          description: `Great progress! You earned $${rewardAmount} and the task has been removed`,
+        });
+      }
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error('Error completing task:', error);
       toast({
         title: "Error",
-        description: "Failed to update task",
+        description: "Failed to complete task",
         variant: "destructive",
       });
     }
