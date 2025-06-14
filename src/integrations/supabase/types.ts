@@ -79,24 +79,30 @@ export type Database = {
         Row: {
           completed: boolean
           created_at: string
+          difficulty: string | null
           goal_id: string
           id: string
+          reward_amount: number | null
           title: string
           updated_at: string
         }
         Insert: {
           completed?: boolean
           created_at?: string
+          difficulty?: string | null
           goal_id: string
           id?: string
+          reward_amount?: number | null
           title: string
           updated_at?: string
         }
         Update: {
           completed?: boolean
           created_at?: string
+          difficulty?: string | null
           goal_id?: string
           id?: string
+          reward_amount?: number | null
           title?: string
           updated_at?: string
         }

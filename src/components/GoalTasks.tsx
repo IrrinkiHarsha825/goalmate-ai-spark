@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Brain, Edit } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Brain, Edit, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
@@ -22,10 +23,18 @@ interface GoalTasksProps {
 export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: GoalTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDifficulty, setNewTaskDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
   const { toast } = useToast();
+
+  // Reward amounts based on difficulty
+  const difficultyRewards = {
+    easy: 10,
+    medium: 25,
+    hard: 50
+  };
 
   const fetchTasks = async () => {
     try {
@@ -46,26 +55,48 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
     fetchTasks();
   }, [goalId]);
 
+  const updateGoalProgress = async () => {
+    try {
+      // Calculate total earned from completed tasks
+      const completedTasks = tasks.filter(task => task.completed);
+      const totalEarned = completedTasks.reduce((sum, task) => sum + (task.reward_amount || 0), 0);
+
+      const { error } = await supabase
+        .from('goals')
+        .update({ current_amount: totalEarned })
+        .eq('id', goalId);
+
+      if (error) throw error;
+
+      console.log(`Updated goal progress to $${totalEarned}`);
+      onTaskUpdate?.();
+    } catch (error) {
+      console.error('Error updating goal progress:', error);
+    }
+  };
+
   const generateAITasks = async () => {
     setAiLoading(true);
     try {
-      // Simulate AI task generation based on goal
       const aiGeneratedTasks = [
-        `Research and plan approach for: ${goalTitle}`,
-        `Break down ${goalTitle} into smaller milestones`,
-        `Set up necessary resources and tools`,
-        `Create weekly progress checkpoints`,
-        `Execute first phase of ${goalTitle}`,
-        `Review and adjust strategy if needed`,
-        `Complete final implementation`,
-        `Evaluate results and document learnings`
+        { title: `Research and plan approach for: ${goalTitle}`, difficulty: 'easy' as const },
+        { title: `Break down ${goalTitle} into smaller milestones`, difficulty: 'medium' as const },
+        { title: `Set up necessary resources and tools`, difficulty: 'medium' as const },
+        { title: `Create weekly progress checkpoints`, difficulty: 'easy' as const },
+        { title: `Execute first phase of ${goalTitle}`, difficulty: 'hard' as const },
+        { title: `Review and adjust strategy if needed`, difficulty: 'medium' as const },
+        { title: `Complete final implementation`, difficulty: 'hard' as const },
+        { title: `Evaluate results and document learnings`, difficulty: 'easy' as const }
       ];
 
       // Add each AI-generated task to the database
-      for (const taskTitle of aiGeneratedTasks) {
+      for (const task of aiGeneratedTasks) {
+        const rewardAmount = difficultyRewards[task.difficulty];
         const taskData: TaskInsert = {
           goal_id: goalId,
-          title: taskTitle,
+          title: task.title,
+          difficulty: task.difficulty,
+          reward_amount: rewardAmount,
           completed: false
         };
 
@@ -82,7 +113,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       onTaskUpdate?.();
       toast({
         title: "AI Tasks Generated",
-        description: `Generated ${aiGeneratedTasks.length} tasks for your goal`,
+        description: `Generated ${aiGeneratedTasks.length} tasks with automatic rewards`,
       });
     } catch (error) {
       console.error('Error generating AI tasks:', error);
@@ -101,9 +132,12 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
     setLoading(true);
     try {
+      const rewardAmount = difficultyRewards[newTaskDifficulty];
       const taskData: TaskInsert = {
         goal_id: goalId,
         title: newTaskTitle.trim(),
+        difficulty: newTaskDifficulty,
+        reward_amount: rewardAmount,
         completed: false
       };
 
@@ -117,11 +151,12 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       setTasks([...tasks, data]);
       setNewTaskTitle("");
+      setNewTaskDifficulty('medium');
       setShowManualInput(false);
       onTaskUpdate?.();
       toast({
         title: "Task Added",
-        description: "New task has been added to your goal",
+        description: `Task added with $${rewardAmount} reward`,
       });
     } catch (error) {
       console.error('Error adding task:', error);
@@ -148,10 +183,19 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
         task.id === taskId ? { ...task, completed } : task
       ));
 
-      onTaskUpdate?.();
+      // Automatically update goal progress after task completion
+      setTimeout(() => {
+        updateGoalProgress();
+      }, 100);
+
+      const task = tasks.find(t => t.id === taskId);
+      const rewardAmount = task?.reward_amount || 0;
+
       toast({
         title: completed ? "Task Completed!" : "Task Unchecked",
-        description: completed ? "Great progress!" : "Task marked as incomplete",
+        description: completed 
+          ? `Great progress! You earned $${rewardAmount}` 
+          : `Task marked as incomplete. $${rewardAmount} removed from progress`,
       });
     } catch (error) {
       console.error('Error updating task:', error);
@@ -173,6 +217,12 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       if (error) throw error;
 
       setTasks(tasks.filter(task => task.id !== taskId));
+      
+      // Update goal progress after task deletion
+      setTimeout(() => {
+        updateGoalProgress();
+      }, 100);
+      
       onTaskUpdate?.();
       toast({
         title: "Task Deleted",
@@ -198,10 +248,17 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       if (error) throw error;
 
       setTasks([]);
+      
+      // Reset goal progress to 0
+      await supabase
+        .from('goals')
+        .update({ current_amount: 0 })
+        .eq('id', goalId);
+      
       onTaskUpdate?.();
       toast({
         title: "All Tasks Cleared",
-        description: "All tasks have been removed",
+        description: "All tasks and progress have been reset",
       });
     } catch (error) {
       console.error('Error clearing tasks:', error);
@@ -213,18 +270,39 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
     }
   };
 
+  const getDifficultyColor = (difficulty: string | null) => {
+    switch (difficulty) {
+      case 'easy':
+        return 'text-green-600 bg-green-50 border-green-200';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'hard':
+        return 'text-red-600 bg-red-50 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const totalPossibleReward = tasks.reduce((sum, task) => sum + (task.reward_amount || 0), 0);
+  const totalEarnedReward = tasks.filter(task => task.completed).reduce((sum, task) => sum + (task.reward_amount || 0), 0);
 
   return (
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="text-lg flex items-center justify-between">
           <span>Tasks for "{goalTitle}"</span>
-          <span className="text-sm font-normal text-gray-600">
-            {completedTasks}/{totalTasks} completed ({Math.round(progressPercentage)}%)
-          </span>
+          <div className="flex items-center gap-4 text-sm font-normal">
+            <span className="text-gray-600">
+              {completedTasks}/{totalTasks} completed ({Math.round(progressPercentage)}%)
+            </span>
+            <span className="text-green-600 flex items-center">
+              <DollarSign className="h-4 w-4 mr-1" />
+              ${totalEarnedReward} / ${totalPossibleReward}
+            </span>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -291,25 +369,42 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
         {/* Manual task input */}
         {showManualInput && (
-          <div className="flex gap-2 p-4 bg-blue-50 rounded-lg">
+          <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
             <Input
               placeholder="Enter task description..."
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && addManualTask()}
             />
-            <Button onClick={addManualTask} disabled={loading || !newTaskTitle.trim()}>
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button 
-              onClick={() => {
-                setShowManualInput(false);
-                setNewTaskTitle("");
-              }}
-              variant="outline"
-            >
-              Cancel
-            </Button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Difficulty:</label>
+              <Select value={newTaskDifficulty} onValueChange={(value: 'easy' | 'medium' | 'hard') => setNewTaskDifficulty(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy ($10)</SelectItem>
+                  <SelectItem value="medium">Medium ($25)</SelectItem>
+                  <SelectItem value="hard">Hard ($50)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={addManualTask} disabled={loading || !newTaskTitle.trim()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Task
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowManualInput(false);
+                  setNewTaskTitle("");
+                  setNewTaskDifficulty('medium');
+                }}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
 
@@ -324,23 +419,32 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
               <span className={`flex-1 ${task.completed ? 'line-through text-gray-500' : ''}`}>
                 {task.title}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteTask(task.id)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-1 text-xs rounded border ${getDifficultyColor(task.difficulty)}`}>
+                  {task.difficulty}
+                </span>
+                <span className="text-green-600 font-medium text-sm flex items-center">
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  {task.reward_amount}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteTask(task.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
 
         {/* Progress bar */}
         {totalTasks > 0 && (
-          <div className="mt-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>Progress</span>
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Task Progress</span>
               <span>{Math.round(progressPercentage)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -348,6 +452,12 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
                 className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progressPercentage}%` }}
               />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Financial Progress</span>
+              <span className="text-green-600 font-medium">
+                ${totalEarnedReward} / ${totalPossibleReward} earned
+              </span>
             </div>
           </div>
         )}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,33 +62,6 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
     fetchGoals();
   }, [user, refreshTrigger]);
 
-  const updateGoalProgress = async (goalId: string, newAmount: number) => {
-    try {
-      const { error } = await supabase
-        .from('goals')
-        .update({ current_amount: newAmount })
-        .eq('id', goalId);
-
-      if (error) throw error;
-
-      setGoals(goals.map(goal => 
-        goal.id === goalId ? { ...goal, current_amount: newAmount } : goal
-      ));
-
-      toast({
-        title: "Progress Updated!",
-        description: `Financial progress has been updated to $${newAmount}`,
-      });
-    } catch (error) {
-      console.error('Error updating goal progress:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update progress",
-        variant: "destructive",
-      });
-    }
-  };
-
   const deleteGoal = async (goalId: string) => {
     try {
       const { error } = await supabase
@@ -141,6 +115,8 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
 
   const handleTaskUpdate = () => {
     setTasksRefreshTrigger(prev => prev + 1);
+    // Refresh goals to get updated progress
+    fetchGoals();
   };
 
   const totalEarned = goals.reduce((sum, goal) => sum + (goal.current_amount || 0), 0);
@@ -256,7 +232,7 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
                     <div className="flex items-center justify-between text-sm">
                       <span className="flex items-center">
                         <DollarSign className="h-4 w-4 mr-1" />
-                        Money Progress
+                        Money Progress (Auto-updated)
                       </span>
                       <span className="font-semibold text-green-600">
                         ${goal.current_amount || 0} / ${goal.target_amount}
@@ -266,20 +242,8 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
                       value={calculateProgress(goal.current_amount, goal.target_amount)} 
                       className="h-2"
                     />
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const amount = prompt('Enter new progress amount:', (goal.current_amount || 0).toString());
-                          if (amount && !isNaN(Number(amount))) {
-                            updateGoalProgress(goal.id, Number(amount));
-                          }
-                        }}
-                        className="text-xs"
-                      >
-                        Update Progress
-                      </Button>
+                    <div className="text-xs text-gray-500">
+                      Progress updates automatically when you complete tasks
                     </div>
                   </div>
                 )}
