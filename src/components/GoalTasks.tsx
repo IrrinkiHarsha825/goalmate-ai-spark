@@ -7,14 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import type { Database } from "@/integrations/supabase/types";
 
-interface Task {
-  id: string;
-  goal_id: string;
-  title: string;
-  completed: boolean;
-  created_at: string;
-}
+type Task = Database['public']['Tables']['tasks']['Row'];
+type TaskInsert = Database['public']['Tables']['tasks']['Insert'];
 
 interface GoalTasksProps {
   goalId: string;
@@ -51,13 +47,15 @@ export const GoalTasks = ({ goalId, goalTitle }: GoalTasksProps) => {
 
     setLoading(true);
     try {
+      const taskData: TaskInsert = {
+        goal_id: goalId,
+        title: newTaskTitle.trim(),
+        completed: false
+      };
+
       const { data, error } = await supabase
         .from('tasks')
-        .insert({
-          goal_id: goalId,
-          title: newTaskTitle.trim(),
-          completed: false
-        })
+        .insert(taskData)
         .select()
         .single();
 
