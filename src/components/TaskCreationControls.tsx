@@ -45,7 +45,7 @@ export const TaskCreationControls = ({
       <div className="space-y-4">
         <div className="text-center py-6 bg-gray-50 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 mb-2">How would you like to create tasks?</h3>
-          <p className="text-gray-600 mb-4">Choose between AI-generated tasks or create them manually</p>
+          <p className="text-gray-600 mb-4">Task rewards will be distributed from your goal target amount based on difficulty</p>
           
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button 
@@ -79,15 +79,18 @@ export const TaskCreationControls = ({
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Difficulty:</label>
               <Select value={newTaskDifficulty} onValueChange={(value: 'easy' | 'medium' | 'hard') => setNewTaskDifficulty(value)}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="easy">Easy ($10)</SelectItem>
-                  <SelectItem value="medium">Medium ($25)</SelectItem>
-                  <SelectItem value="hard">Hard ($50)</SelectItem>
+                  <SelectItem value="easy">Easy (1x weight)</SelectItem>
+                  <SelectItem value="medium">Medium (2x weight)</SelectItem>
+                  <SelectItem value="hard">Hard (3x weight)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="text-xs text-gray-500">
+              Reward amount will be calculated based on your goal target and task difficulty distribution
             </div>
             <div className="flex gap-2">
               <Button onClick={handleAddManual} disabled={loading || !newTaskTitle.trim()}>
@@ -146,15 +149,18 @@ export const TaskCreationControls = ({
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Difficulty:</label>
             <Select value={newTaskDifficulty} onValueChange={(value: 'easy' | 'medium' | 'hard') => setNewTaskDifficulty(value)}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="easy">Easy ($10)</SelectItem>
-                <SelectItem value="medium">Medium ($25)</SelectItem>
-                <SelectItem value="hard">Hard ($50)</SelectItem>
+                <SelectItem value="easy">Easy (1x weight)</SelectItem>
+                <SelectItem value="medium">Medium (2x weight)</SelectItem>
+                <SelectItem value="hard">Hard (3x weight)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="text-xs text-gray-500">
+            Reward amount will be calculated based on your goal target and task difficulty distribution
           </div>
           <div className="flex gap-2">
             <Button onClick={handleAddManual} disabled={loading || !newTaskTitle.trim()}>

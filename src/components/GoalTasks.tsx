@@ -16,20 +16,76 @@ interface GoalTasksProps {
   goalId: string;
   goalTitle: string;
   goalDescription?: string;
+  goalTargetAmount?: number;
   onTaskUpdate?: () => void;
 }
 
-export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: GoalTasksProps) => {
+export const GoalTasks = ({ goalId, goalTitle, goalDescription, goalTargetAmount, onTaskUpdate }: GoalTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const { toast } = useToast();
 
-  // Reward amounts based on difficulty
-  const difficultyRewards = {
-    easy: 10,
-    medium: 25,
-    hard: 50
+  // Difficulty weights for percentage distribution
+  const difficultyWeights = {
+    easy: 1,
+    medium: 2,
+    hard: 3
+  };
+
+  const calculateTaskReward = (difficulty: 'easy' | 'medium' | 'hard', totalTasks: number, targetAmount: number) => {
+    if (!targetAmount || totalTasks === 0) {
+      // Fallback to fixed amounts if no target amount
+      const fallbackRewards = { easy: 10, medium: 25, hard: 50 };
+      return fallbackRewards[difficulty];
+    }
+
+    // Calculate total weight points for all tasks
+    const easyCount = tasks.filter(t => t.difficulty === 'easy').length + (difficulty === 'easy' ? 1 : 0);
+    const mediumCount = tasks.filter(t => t.difficulty === 'medium').length + (difficulty === 'medium' ? 1 : 0);
+    const hardCount = tasks.filter(t => t.difficulty === 'hard').length + (difficulty === 'hard' ? 1 : 0);
+    
+    const totalWeightPoints = (easyCount * difficultyWeights.easy) + 
+                              (mediumCount * difficultyWeights.medium) + 
+                              (hardCount * difficultyWeights.hard);
+
+    // Calculate reward based on difficulty weight and target amount
+    const difficultyWeight = difficultyWeights[difficulty];
+    const rewardAmount = Math.round((difficultyWeight / totalWeightPoints) * targetAmount);
+    
+    return Math.max(rewardAmount, 1); // Minimum $1 per task
+  };
+
+  const recalculateAllTaskRewards = async (currentTasks: Task[]) => {
+    if (!goalTargetAmount || currentTasks.length === 0) return;
+
+    try {
+      // Calculate new rewards for all tasks
+      const updatedTasks: Task[] = [];
+      
+      for (const task of currentTasks) {
+        const newReward = calculateTaskReward(
+          task.difficulty as 'easy' | 'medium' | 'hard', 
+          currentTasks.length, 
+          goalTargetAmount
+        );
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .update({ reward_amount: newReward })
+          .eq('id', task.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        updatedTasks.push(data);
+      }
+
+      setTasks(updatedTasks);
+      await updateGoalProgress(updatedTasks);
+    } catch (error) {
+      console.error('Error recalculating task rewards:', error);
+    }
   };
 
   const fetchTasks = async () => {
@@ -43,8 +99,10 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       if (error) throw error;
       setTasks(data || []);
       
-      // Calculate and update goal progress immediately after fetching tasks
-      if (data && data.length > 0) {
+      // Recalculate rewards based on current target amount
+      if (data && data.length > 0 && goalTargetAmount) {
+        await recalculateAllTaskRewards(data);
+      } else if (data && data.length > 0) {
         await updateGoalProgress(data);
       }
     } catch (error) {
@@ -54,7 +112,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
   useEffect(() => {
     fetchTasks();
-  }, [goalId]);
+  }, [goalId, goalTargetAmount]);
 
   const updateGoalProgress = async (currentTasks = tasks) => {
     try {
@@ -92,10 +150,11 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       ];
 
       const newTasks: Task[] = [];
+      const totalTasksAfterAdd = tasks.length + aiGeneratedTasks.length;
 
       // Add each AI-generated task to the database
       for (const task of aiGeneratedTasks) {
-        const rewardAmount = difficultyRewards[task.difficulty];
+        const rewardAmount = calculateTaskReward(task.difficulty, totalTasksAfterAdd, goalTargetAmount || 0);
         const taskData: TaskInsert = {
           goal_id: goalId,
           title: task.title,
@@ -116,11 +175,17 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       const updatedTasks = [...tasks, ...newTasks];
       setTasks(updatedTasks);
-      await updateGoalProgress(updatedTasks);
+      
+      // Recalculate all task rewards with new distribution
+      if (goalTargetAmount) {
+        await recalculateAllTaskRewards(updatedTasks);
+      } else {
+        await updateGoalProgress(updatedTasks);
+      }
 
       toast({
         title: "AI Tasks Generated",
-        description: `Generated ${aiGeneratedTasks.length} tasks with automatic rewards`,
+        description: `Generated ${aiGeneratedTasks.length} tasks with distributed rewards`,
       });
     } catch (error) {
       console.error('Error generating AI tasks:', error);
@@ -137,7 +202,9 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
   const addManualTask = async (title: string, difficulty: 'easy' | 'medium' | 'hard') => {
     setLoading(true);
     try {
-      const rewardAmount = difficultyRewards[difficulty];
+      const totalTasksAfterAdd = tasks.length + 1;
+      const rewardAmount = calculateTaskReward(difficulty, totalTasksAfterAdd, goalTargetAmount || 0);
+      
       const taskData: TaskInsert = {
         goal_id: goalId,
         title,
@@ -156,11 +223,17 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
 
       const updatedTasks = [...tasks, data];
       setTasks(updatedTasks);
-      await updateGoalProgress(updatedTasks);
+      
+      // Recalculate all task rewards with new distribution
+      if (goalTargetAmount) {
+        await recalculateAllTaskRewards(updatedTasks);
+      } else {
+        await updateGoalProgress(updatedTasks);
+      }
       
       toast({
         title: "Task Added",
-        description: `Task added with $${rewardAmount} reward`,
+        description: `Task added with $${rewardAmount} reward (distributed from goal target)`,
       });
     } catch (error) {
       console.error('Error adding task:', error);
@@ -222,12 +295,16 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
       const updatedTasks = tasks.filter(task => task.id !== taskId);
       setTasks(updatedTasks);
       
-      // Update goal progress after task deletion
-      await updateGoalProgress(updatedTasks);
+      // Recalculate remaining task rewards after deletion
+      if (goalTargetAmount && updatedTasks.length > 0) {
+        await recalculateAllTaskRewards(updatedTasks);
+      } else {
+        await updateGoalProgress(updatedTasks);
+      }
       
       toast({
         title: "Task Deleted",
-        description: "Task has been removed",
+        description: "Task removed and rewards redistributed",
       });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -292,6 +369,11 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: 
             </span>
           </div>
         </CardTitle>
+        {goalTargetAmount && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+            💡 Task rewards are automatically distributed from your ${goalTargetAmount} goal target based on difficulty
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <TaskCreationControls

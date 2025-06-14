@@ -52,7 +52,8 @@ export const GoalsGrid = ({
             {expandedGoal === goal.id && (
               <GoalTasks 
                 goalId={goal.id} 
-                goalTitle={goal.title} 
+                goalTitle={goal.title}
+                goalTargetAmount={goal.target_amount || undefined}
                 onTaskUpdate={onTaskUpdate}
               />
             )}
