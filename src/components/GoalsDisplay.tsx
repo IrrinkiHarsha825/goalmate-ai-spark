@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
+  const [tasksRefreshTrigger, setTasksRefreshTrigger] = useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -109,6 +111,10 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
 
   const toggleGoalExpansion = (goalId: string) => {
     setExpandedGoal(expandedGoal === goalId ? null : goalId);
+  };
+
+  const handleTaskUpdate = () => {
+    setTasksRefreshTrigger(prev => prev + 1);
   };
 
   if (loading) {
@@ -211,7 +217,11 @@ export const GoalsDisplay = ({ refreshTrigger }: GoalsDisplayProps) => {
 
             {/* Show tasks when goal is expanded */}
             {expandedGoal === goal.id && (
-              <GoalTasks goalId={goal.id} goalTitle={goal.title} />
+              <GoalTasks 
+                goalId={goal.id} 
+                goalTitle={goal.title} 
+                onTaskUpdate={handleTaskUpdate}
+              />
             )}
           </div>
         ))}

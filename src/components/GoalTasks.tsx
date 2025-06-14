@@ -16,9 +16,10 @@ interface GoalTasksProps {
   goalId: string;
   goalTitle: string;
   goalDescription?: string;
+  onTaskUpdate?: () => void;
 }
 
-export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps) => {
+export const GoalTasks = ({ goalId, goalTitle, goalDescription, onTaskUpdate }: GoalTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -78,6 +79,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps
         setTasks(prev => [...prev, data]);
       }
 
+      onTaskUpdate?.();
       toast({
         title: "AI Tasks Generated",
         description: `Generated ${aiGeneratedTasks.length} tasks for your goal`,
@@ -116,6 +118,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps
       setTasks([...tasks, data]);
       setNewTaskTitle("");
       setShowManualInput(false);
+      onTaskUpdate?.();
       toast({
         title: "Task Added",
         description: "New task has been added to your goal",
@@ -145,6 +148,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps
         task.id === taskId ? { ...task, completed } : task
       ));
 
+      onTaskUpdate?.();
       toast({
         title: completed ? "Task Completed!" : "Task Unchecked",
         description: completed ? "Great progress!" : "Task marked as incomplete",
@@ -169,6 +173,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps
       if (error) throw error;
 
       setTasks(tasks.filter(task => task.id !== taskId));
+      onTaskUpdate?.();
       toast({
         title: "Task Deleted",
         description: "Task has been removed",
@@ -193,6 +198,7 @@ export const GoalTasks = ({ goalId, goalTitle, goalDescription }: GoalTasksProps
       if (error) throw error;
 
       setTasks([]);
+      onTaskUpdate?.();
       toast({
         title: "All Tasks Cleared",
         description: "All tasks have been removed",
