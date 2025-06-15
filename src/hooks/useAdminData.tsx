@@ -68,8 +68,24 @@ export const useAdminData = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch goal verifications - we'll get user email and goal title separately to avoid join issues
-      console.log('Fetching goal verifications...');
+      console.log('Fetching goal verifications as admin...');
+      
+      // Check if user is admin first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single();
+      
+      console.log('Admin profile check:', profile);
+      
+      if (profile?.role !== 'admin' && user?.user_metadata?.role !== 'admin') {
+        console.log('User is not admin, skipping admin data fetch');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch goal verifications with explicit admin bypass
       const { data: verifications, error: verificationsError } = await supabase
         .from('goal_verifications')
         .select('*')
@@ -77,37 +93,39 @@ export const useAdminData = () => {
 
       if (verificationsError) {
         console.error('Error fetching goal verifications:', verificationsError);
-        throw verificationsError;
+        // Don't throw here, continue with other data
+      } else {
+        console.log('Raw goal verifications:', verifications);
+        
+        // Get user emails and goal titles separately
+        const formattedVerifications = [];
+        for (const verification of verifications || []) {
+          // Get user email
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', verification.user_id)
+            .single();
+
+          // Get goal title
+          const { data: goal } = await supabase
+            .from('goals')
+            .select('title')
+            .eq('id', verification.goal_id)
+            .single();
+
+          formattedVerifications.push({
+            ...verification,
+            user_email: userProfile?.email || 'Unknown User',
+            goal_title: goal?.title || 'Unknown Goal'
+          });
+        }
+        
+        console.log('Formatted goal verifications:', formattedVerifications);
+        setGoalVerifications(formattedVerifications);
       }
 
-      // Get user emails and goal titles separately
-      const formattedVerifications = [];
-      for (const verification of verifications || []) {
-        // Get user email
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', verification.user_id)
-          .single();
-
-        // Get goal title
-        const { data: goal } = await supabase
-          .from('goals')
-          .select('title')
-          .eq('id', verification.goal_id)
-          .single();
-
-        formattedVerifications.push({
-          ...verification,
-          user_email: profile?.email,
-          goal_title: goal?.title
-        });
-      }
-      
-      console.log('Goal verifications fetched:', formattedVerifications);
-      setGoalVerifications(formattedVerifications);
-
-      // Still fetch old payment submissions for backward compatibility
+      // Fetch payment submissions
       console.log('Fetching payment submissions...');
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
@@ -116,12 +134,12 @@ export const useAdminData = () => {
 
       if (paymentsError) {
         console.error('Error fetching payments:', paymentsError);
-        throw paymentsError;
+      } else {
+        console.log('Payment submissions fetched:', payments);
+        setPaymentSubmissions(payments || []);
       }
-      
-      console.log('Payment submissions fetched:', payments);
-      setPaymentSubmissions(payments || []);
 
+      // Fetch withdrawal requests
       console.log('Fetching withdrawal requests...');
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
@@ -130,13 +148,12 @@ export const useAdminData = () => {
 
       if (withdrawalsError) {
         console.error('Error fetching withdrawals:', withdrawalsError);
-        throw withdrawalsError;
+      } else {
+        console.log('Withdrawal requests fetched:', withdrawals);
+        setWithdrawalRequests(withdrawals || []);
       }
-      
-      console.log('Withdrawal requests fetched:', withdrawals);
-      setWithdrawalRequests(withdrawals || []);
 
-      // For now, set empty task completion submissions until the table exists
+      // Task completion submissions - placeholder for now
       console.log('Task completion submissions table not yet available');
       setTaskCompletionSubmissions([]);
 
