@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,27 +47,21 @@ const Admin = () => {
       return;
     }
 
-    const checkAdminRole = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (error || data?.role !== 'admin') {
-        navigate('/');
-        toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      fetchData();
-    };
-
-    checkAdminRole();
+    // Check admin role from user metadata instead of database
+    const userRole = user.user_metadata?.role || 'user';
+    console.log('User role from metadata:', userRole);
+    
+    if (userRole !== 'admin') {
+      navigate('/');
+      toast({
+        title: "Access Denied",
+        description: "You don't have admin privileges",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    fetchData();
   }, [user, navigate]);
 
   const fetchData = async () => {
