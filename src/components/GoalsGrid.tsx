@@ -35,7 +35,7 @@ export const GoalsGrid = ({
           <div key={goal.id} className="space-y-4">
             <GoalCard
               goal={goal}
-              onView={onToggleGoalExpansion}
+              onView={(goal) => onToggleGoalExpansion(goal.id)}
             />
 
             {/* Show tasks when goal is expanded */}
