@@ -30,20 +30,61 @@ export const PaymentSubmissionModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !transactionId.trim()) return;
+    
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to submit payment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!transactionId.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a transaction ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!goalId) {
+      toast({
+        title: "Error",
+        description: "Goal ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      console.log('Submitting payment with data:', {
+        user_id: user.id,
+        goal_id: goalId,
+        transaction_id: transactionId.trim(),
+        amount: Number(amount),
+      });
+
+      const { data, error } = await supabase
         .from('payment_submissions')
         .insert({
           user_id: user.id,
           goal_id: goalId,
           transaction_id: transactionId.trim(),
           amount: Number(amount),
-        });
+          status: 'pending'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Payment submission error:', error);
+        throw error;
+      }
+
+      console.log('Payment submitted successfully:', data);
 
       toast({
         title: "Payment Submitted Successfully! ✅",
@@ -53,11 +94,11 @@ export const PaymentSubmissionModal = ({
       setTransactionId("");
       onOpenChange(false);
       onPaymentSubmitted();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting payment:', error);
       toast({
-        title: "Error",
-        description: "Failed to submit payment. Please try again.",
+        title: "Payment Submission Failed",
+        description: error?.message || "Failed to submit payment. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -95,6 +136,7 @@ export const PaymentSubmissionModal = ({
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
                 required
+                disabled={loading}
               />
               <p className="text-xs text-gray-500">
                 Enter the transaction ID you received after making the payment
@@ -102,10 +144,18 @@ export const PaymentSubmissionModal = ({
             </div>
             
             <DialogFooter className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || !transactionId.trim()}>
+              <Button 
+                type="submit" 
+                disabled={loading || !transactionId.trim()}
+              >
                 {loading ? "Submitting..." : "Submit Payment Proof"}
               </Button>
             </DialogFooter>
