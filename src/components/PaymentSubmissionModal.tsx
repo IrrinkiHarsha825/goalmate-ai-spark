@@ -41,7 +41,7 @@ export const PaymentSubmissionModal = ({
           user_id: user.id,
           goal_id: goalId,
           transaction_id: transactionId.trim(),
-          amount: amount,
+          amount: Number(amount),
         });
 
       if (error) throw error;
@@ -77,7 +77,7 @@ export const PaymentSubmissionModal = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          <PaymentQRCode amount={amount.toString()} />
+          <PaymentQRCode amount={String(amount)} goalTitle="Goal Commitment" />
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">

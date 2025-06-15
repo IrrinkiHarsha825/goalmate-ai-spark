@@ -25,6 +25,16 @@ const Auth = () => {
   const { toast } = useToast();
 
   const checkUserRole = async (userId: string) => {
+    console.log('Checking user role for:', userId);
+    
+    // First check the user metadata for role
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userData?.user?.user_metadata?.role) {
+      console.log('Role from user metadata:', userData.user.user_metadata.role);
+      return userData.user.user_metadata.role;
+    }
+
+    // Then check the profiles table
     const { data, error } = await supabase
       .from('profiles')
       .select('role')
@@ -36,6 +46,7 @@ const Auth = () => {
       return 'user';
     }
     
+    console.log('Role from profiles table:', data?.role);
     return data?.role || 'user';
   };
 
@@ -50,6 +61,8 @@ const Auth = () => {
         
         if (!result.error && result.data?.user) {
           const userRole = await checkUserRole(result.data.user.id);
+          console.log('User role after signin:', userRole);
+          console.log('Selected route:', selectedRoute);
           
           toast({
             title: "Welcome back!",
@@ -58,8 +71,10 @@ const Auth = () => {
 
           // Navigate based on user role and selected route
           if (userRole === 'admin' && selectedRoute === 'admin') {
+            console.log('Navigating to admin panel');
             navigate('/admin');
           } else {
+            console.log('Navigating to main dashboard');
             navigate('/');
           }
         }
