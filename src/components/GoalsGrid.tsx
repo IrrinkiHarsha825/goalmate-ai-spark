@@ -26,9 +26,7 @@ export const GoalsGrid = ({
         <div key={goal.id} className="space-y-4">
           <GoalCard
             goal={goal}
-            isExpanded={expandedGoal === goal.id}
-            onToggleExpansion={() => onToggleGoalExpansion(goal.id)}
-            onDelete={() => onDeleteGoal(goal.id)}
+            onView={() => onToggleGoalExpansion(goal.id)}
           />
           
           {expandedGoal === goal.id && (
@@ -39,7 +37,7 @@ export const GoalsGrid = ({
               goalTargetAmount={goal.target_amount ? Number(goal.target_amount) : undefined}
               goalCurrentAmount={goal.current_amount ? Number(goal.current_amount) : 0}
               goalType="general"
-              goalStatus={goal.status || 'inactive'} // Pass the goal status
+              goalStatus={goal.status || 'inactive'}
               commitmentAmount={goal.target_amount ? Number(goal.target_amount) : 0}
               onTaskUpdate={onTaskUpdate}
             />
