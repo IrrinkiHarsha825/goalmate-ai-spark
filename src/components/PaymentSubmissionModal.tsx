@@ -41,7 +41,7 @@ export const PaymentSubmissionModal = ({
           user_id: user.id,
           goal_id: goalId,
           transaction_id: transactionId.trim(),
-          amount: amount.toString(),
+          amount: amount,
         });
 
       if (error) throw error;
