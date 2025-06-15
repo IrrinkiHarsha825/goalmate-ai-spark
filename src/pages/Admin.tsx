@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -100,7 +101,8 @@ const Admin = () => {
       const submission = paymentSubmissions.find(p => p.id === submissionId);
       if (!submission) return;
 
-      const { error } = await supabase
+      // Update payment submission status
+      const { error: submissionError } = await supabase
         .from('payment_submissions')
         .update({
           status: action,
@@ -110,23 +112,58 @@ const Admin = () => {
         })
         .eq('id', submissionId);
 
-      if (error) throw error;
+      if (submissionError) throw submissionError;
 
       if (action === 'approved') {
-        const { error: walletError } = await supabase
-          .from('wallets')
-          .update({
-            balance: submission.amount,
-            total_invested: submission.amount,
-          })
-          .eq('user_id', submission.user_id);
+        // Activate the goal when payment is approved
+        const { error: goalError } = await supabase
+          .from('goals')
+          .update({ status: 'active' })
+          .eq('id', submission.goal_id);
 
-        if (walletError) throw walletError;
+        if (goalError) throw goalError;
+
+        // Update or create wallet with the investment amount
+        const { data: existingWallet } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', submission.user_id)
+          .single();
+
+        if (existingWallet) {
+          const { error: walletError } = await supabase
+            .from('wallets')
+            .update({
+              balance: Number(existingWallet.balance) + Number(submission.amount),
+              total_invested: Number(existingWallet.total_invested) + Number(submission.amount),
+            })
+            .eq('user_id', submission.user_id);
+
+          if (walletError) throw walletError;
+        } else {
+          const { error: walletError } = await supabase
+            .from('wallets')
+            .insert({
+              user_id: submission.user_id,
+              balance: submission.amount,
+              total_invested: submission.amount,
+            });
+
+          if (walletError) throw walletError;
+        }
+      } else {
+        // If rejected, set goal status back to pending or rejected
+        const { error: goalError } = await supabase
+          .from('goals')
+          .update({ status: 'payment_rejected' })
+          .eq('id', submission.goal_id);
+
+        if (goalError) throw goalError;
       }
 
       toast({
         title: action === 'approved' ? "Payment Approved" : "Payment Rejected",
-        description: `Payment submission has been ${action}`,
+        description: `Payment submission has been ${action}${action === 'approved' ? ' and goal activated' : ''}`,
       });
 
       fetchData();
@@ -170,7 +207,7 @@ const Admin = () => {
         if (wallet) {
           const { error: updateError } = await supabase
             .from('wallets')
-            .update({ balance: wallet.balance - request.amount })
+            .update({ balance: Number(wallet.balance) - Number(request.amount) })
             .eq('user_id', request.user_id);
 
           if (updateError) throw updateError;
