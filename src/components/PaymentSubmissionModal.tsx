@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, CreditCard } from "lucide-react";
 
 interface PaymentSubmissionModalProps {
   open: boolean;
@@ -33,7 +34,7 @@ export const PaymentSubmissionModal = ({
     
     if (!user) {
       toast({
-        title: "Error",
+        title: "Authentication Required",
         description: "You must be logged in to submit payment",
         variant: "destructive",
       });
@@ -42,8 +43,8 @@ export const PaymentSubmissionModal = ({
 
     if (!transactionId.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter a transaction ID",
+        title: "Transaction ID Required",
+        description: "Please enter a valid transaction ID",
         variant: "destructive",
       });
       return;
@@ -67,6 +68,37 @@ export const PaymentSubmissionModal = ({
         amount: Number(amount),
       });
 
+      // Check if there's already a pending submission for this goal
+      const { data: existingSubmission, error: checkError } = await supabase
+        .from('payment_submissions')
+        .select('id, status')
+        .eq('goal_id', goalId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing submissions:', checkError);
+        throw checkError;
+      }
+
+      if (existingSubmission) {
+        if (existingSubmission.status === 'pending') {
+          toast({
+            title: "Submission Already Exists",
+            description: "You already have a pending payment submission for this goal",
+            variant: "destructive",
+          });
+          return;
+        } else if (existingSubmission.status === 'approved') {
+          toast({
+            title: "Payment Already Approved",
+            description: "This goal already has an approved payment",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const { data, error } = await supabase
         .from('payment_submissions')
         .insert({
@@ -88,7 +120,7 @@ export const PaymentSubmissionModal = ({
 
       toast({
         title: "Payment Submitted Successfully! ✅",
-        description: "Your payment is now pending admin approval. We'll activate your goal once verified.",
+        description: "Your payment is now pending admin verification. Your goal will be activated once approved.",
       });
 
       setTransactionId("");
@@ -110,21 +142,34 @@ export const PaymentSubmissionModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Submit Payment Proof</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-blue-600" />
+            Submit Payment Proof
+          </DialogTitle>
           <DialogDescription>
-            Complete your payment of ₹{amount} through any UPI app, then submit your transaction ID below for verification.
+            Complete your payment of ₹{amount} and submit your transaction ID for admin verification.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Payment Instructions:</h4>
+            <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Payment Instructions:
+            </h4>
             <ul className="text-blue-800 text-sm space-y-1">
               <li>• Make payment of ₹{amount} via any UPI app</li>
               <li>• Use UPI ID or scan merchant QR code</li>
               <li>• Copy the transaction ID from your payment app</li>
-              <li>• Submit the transaction ID below</li>
+              <li>• Submit the transaction ID below for verification</li>
             </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-amber-800 text-sm flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <strong>Important:</strong> Your goal will remain locked until admin verifies your payment
+            </p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -137,9 +182,10 @@ export const PaymentSubmissionModal = ({
                 onChange={(e) => setTransactionId(e.target.value)}
                 required
                 disabled={loading}
+                className="font-mono"
               />
               <p className="text-xs text-gray-500">
-                Enter the transaction ID you received after making the payment
+                Enter the exact transaction ID you received after making the payment
               </p>
             </div>
             
@@ -155,6 +201,7 @@ export const PaymentSubmissionModal = ({
               <Button 
                 type="submit" 
                 disabled={loading || !transactionId.trim()}
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 {loading ? "Submitting..." : "Submit Payment Proof"}
               </Button>

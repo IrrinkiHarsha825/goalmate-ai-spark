@@ -123,7 +123,7 @@ export const useAdminActions = (
       }
 
       toast({
-        title: action === 'approved' ? "Payment Approved" : "Payment Rejected",
+        title: action === 'approved' ? "Payment Approved ✅" : "Payment Rejected ❌",
         description: `Payment submission has been ${action}${action === 'approved' ? ' and goal activated' : ''}`,
       });
 
@@ -155,6 +155,8 @@ export const useAdminActions = (
     }
 
     try {
+      console.log(`Processing withdrawal ${requestId} with action: ${action}`);
+      
       const { data: request, error: fetchError } = await supabase
         .from('withdrawal_requests')
         .select('*')
@@ -162,10 +164,12 @@ export const useAdminActions = (
         .single();
 
       if (fetchError || !request) {
+        console.error('Withdrawal request not found:', requestId);
         throw fetchError || new Error('Request not found');
       }
 
-      const { error } = await supabase
+      // Update withdrawal request status
+      const { error: updateError } = await supabase
         .from('withdrawal_requests')
         .update({
           status: action,
@@ -175,30 +179,51 @@ export const useAdminActions = (
         })
         .eq('id', requestId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Error updating withdrawal request:', updateError);
+        throw updateError;
+      }
 
       if (action === 'approved') {
-        const { data: wallet } = await supabase
+        console.log('Withdrawal approved, updating wallet balance...');
+        
+        // Get current wallet balance
+        const { data: wallet, error: walletError } = await supabase
           .from('wallets')
           .select('balance')
           .eq('user_id', request.user_id)
           .single();
 
+        if (walletError) {
+          console.error('Error fetching wallet:', walletError);
+          throw walletError;
+        }
+
         if (wallet) {
-          const { error: updateError } = await supabase
+          const newBalance = Number(wallet.balance) - Number(request.amount);
+          
+          if (newBalance < 0) {
+            throw new Error('Insufficient balance for withdrawal');
+          }
+
+          const { error: balanceUpdateError } = await supabase
             .from('wallets')
-            .update({ balance: Number(wallet.balance) - Number(request.amount) })
+            .update({ balance: newBalance })
             .eq('user_id', request.user_id);
 
-          if (updateError) throw updateError;
+          if (balanceUpdateError) {
+            console.error('Error updating wallet balance:', balanceUpdateError);
+            throw balanceUpdateError;
+          }
         }
       }
 
       toast({
-        title: action === 'approved' ? "Withdrawal Approved" : "Withdrawal Rejected",
-        description: `Withdrawal request has been ${action}`,
+        title: action === 'approved' ? "Withdrawal Approved ✅" : "Withdrawal Rejected ❌",
+        description: `Withdrawal request has been ${action}${action === 'approved' ? ' and balance updated' : ''}`,
       });
 
+      console.log('Withdrawal action completed, refreshing data...');
       await onDataUpdate();
     } catch (error) {
       console.error('Error processing withdrawal:', error);
@@ -208,7 +233,7 @@ export const useAdminActions = (
       
       toast({
         title: "Error",
-        description: "Failed to process withdrawal",
+        description: error instanceof Error ? error.message : "Failed to process withdrawal",
         variant: "destructive",
       });
     } finally {
