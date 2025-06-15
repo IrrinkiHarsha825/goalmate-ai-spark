@@ -1,6 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminLoadingScreen } from "@/components/admin/AdminLoadingScreen";
 import { AdminNavigation } from "@/components/admin/AdminNavigation";
 import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
@@ -14,7 +16,7 @@ import { useAdminActions } from "@/hooks/useAdminActions";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 const Admin = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
 
@@ -69,7 +71,7 @@ const Admin = () => {
     checkUserRole();
   }, [user]);
 
-  if (authLoading || roleLoading || loading) {
+  if (roleLoading || loading) {
     return <AdminLoadingScreen />;
   }
 
@@ -84,7 +86,7 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <AdminNavigation />
+      <AdminNavigation onSignOut={() => supabase.auth.signOut()} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -93,10 +95,9 @@ const Admin = () => {
         </div>
 
         <AdminStatsCards 
-          totalPendingPayments={totalPendingPayments}
-          totalPendingVerifications={totalPendingVerifications}
-          totalPendingWithdrawals={totalPendingWithdrawals}
-          totalPendingTasks={totalPendingTasks}
+          pendingPayments={totalPendingPayments}
+          pendingWithdrawals={totalPendingWithdrawals}
+          totalRequests={totalPendingPayments + totalPendingVerifications + totalPendingWithdrawals + totalPendingTasks}
         />
 
         <Tabs defaultValue="verifications" className="w-full">
