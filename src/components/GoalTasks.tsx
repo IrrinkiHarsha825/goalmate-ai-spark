@@ -9,10 +9,7 @@ import { TaskProgressDisplay } from "./TaskProgressDisplay";
 import { MilestoneProgress } from "./MilestoneProgress";
 import type { Database } from "@/integrations/supabase/types";
 
-type Task = Database['public']['Tables']['tasks']['Row'] & {
-  proof_status?: 'pending' | 'approved' | 'rejected';
-  admin_feedback?: string;
-};
+type Task = Database['public']['Tables']['tasks']['Row'];
 type TaskInsert = Database['public']['Tables']['tasks']['Insert'];
 
 interface GoalTasksProps {
@@ -83,29 +80,12 @@ export const GoalTasks = ({
 
       if (tasksError) throw tasksError;
 
-      // Fetch task completion submissions to check status
-      const { data: submissionsData, error: submissionsError } = await supabase
-        .from('task_completion_submissions')
-        .select('task_id, status, admin_notes')
-        .eq('goal_id', goalId);
-
-      if (submissionsError) throw submissionsError;
-
-      // Merge task data with completion status
-      const tasksWithStatus = (tasksData || []).map(task => {
-        const submission = submissionsData?.find(s => s.task_id === task.id);
-        return {
-          ...task,
-          completion_status: submission?.status,
-          admin_feedback: submission?.admin_notes,
-          has_pending_submission: submission?.status === 'pending'
-        };
-      });
-
-      setTasks(tasksWithStatus);
+      // For now, just use the basic task data without completion status
+      // TODO: Once task_completion_submissions table is created, fetch and merge completion status
+      setTasks(tasksData || []);
       
-      if (tasksWithStatus && tasksWithStatus.length > 0 && commitmentAmount) {
-        await recalculateAllTaskRewards(tasksWithStatus);
+      if (tasksData && tasksData.length > 0 && commitmentAmount) {
+        await recalculateAllTaskRewards(tasksData);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -134,73 +114,18 @@ export const GoalTasks = ({
     }
   };
 
-  const handleProofSubmitted = async (taskId: string, proofData: any) => {
-    try {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      // Submit proof for admin verification
-      console.log('Submitting proof for admin verification:', { taskId, proofData });
-
-      // For now, just update the task status to show it's pending admin review
-      // In a real implementation, you'd create a proof_submissions table
-      const updatedTask = {
-        ...task,
-        proof_status: 'pending' as const,
-      };
-
-      // Update local state to show pending status
-      setTasks(prevTasks => 
-        prevTasks.map(t => t.id === taskId ? updatedTask : t)
-      );
-
-      toast({
-        title: "Proof Submitted! ⏳",
-        description: "Your proof has been submitted for admin verification. You'll be notified once it's reviewed.",
-      });
-
-    } catch (error) {
-      console.error('Error submitting proof:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit proof. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleTaskCompletionSubmitted = async (taskId: string, proofData: any) => {
     try {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      const { error } = await supabase
-        .from('task_completion_submissions')
-        .insert({
-          task_id: taskId,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          goal_id: goalId,
-          proof_text: proofData.description,
-          proof_image_url: proofData.imageUrl,
-          reward_amount: task.reward_amount || 0
-        });
-
-      if (error) throw error;
-
-      // Update local state to show pending status
-      setTasks(prevTasks => 
-        prevTasks.map(t => 
-          t.id === taskId 
-            ? { ...t, completion_status: 'pending' as const, has_pending_submission: true }
-            : t
-        )
-      );
-
+      // For now, just show a message that the feature will be available soon
       toast({
-        title: "Task Completion Submitted! ⏳",
-        description: `Your proof has been submitted for admin review. Reward: $${task.reward_amount}`,
+        title: "Feature Coming Soon! ⏳",
+        description: "Task completion submission will be available after database setup. The admin can manually mark tasks as complete for now.",
       });
 
+      console.log('Task completion data:', { taskId, proofData, task });
     } catch (error) {
       console.error('Error submitting task completion:', error);
       toast({
@@ -317,8 +242,48 @@ export const GoalTasks = ({
   };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
-    // This function is now mainly handled by proof verification
-    // Keeping for backward compatibility
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === taskId ? { ...task, completed } : task
+        )
+      );
+
+      const task = tasks.find(t => t.id === taskId);
+      if (task && completed) {
+        // Update goal's current amount when task is completed
+        const newCurrentAmount = goalCurrentAmount + (task.reward_amount || 0);
+        
+        const { error: goalError } = await supabase
+          .from('goals')
+          .update({ current_amount: newCurrentAmount })
+          .eq('id', goalId);
+
+        if (!goalError) {
+          onTaskUpdate?.();
+          await checkAndUpdateMilestones(newCurrentAmount);
+          
+          toast({
+            title: "Task Completed! 🎉",
+            description: `You earned $${task.reward_amount}! Total: $${newCurrentAmount}`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteTask = async (taskId: string) => {
@@ -405,7 +370,7 @@ export const GoalTasks = ({
           </CardTitle>
           {commitmentAmount > 0 && (
             <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks and submit proof to earn ${rewardPerTask} per task! Admin will verify each submission and award payment upon approval.
+              💡 Complete tasks to earn ${rewardPerTask} per task! Tasks can be marked as complete once the goal is unlocked by admin payment approval.
             </div>
           )}
         </CardHeader>

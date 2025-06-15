@@ -3,15 +3,11 @@ import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Trash2, CheckCircle, AlertCircle, Clock, Send } from "lucide-react";
+import { DollarSign, Trash2, CheckCircle, Send } from "lucide-react";
 import { ProofVerificationModal } from "./ProofVerificationModal";
 import type { Database } from "@/integrations/supabase/types";
 
-type Task = Database['public']['Tables']['tasks']['Row'] & {
-  completion_status?: 'pending' | 'approved' | 'rejected';
-  admin_feedback?: string;
-  has_pending_submission?: boolean;
-};
+type Task = Database['public']['Tables']['tasks']['Row'];
 
 interface TaskItemProps {
   task: Task;
@@ -37,19 +33,6 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
     }
   };
 
-  const getCompletionStatus = () => {
-    if (task.completed) {
-      return { icon: CheckCircle, color: 'text-green-600', label: 'Completed & Paid' };
-    } else if (task.completion_status === 'approved') {
-      return { icon: CheckCircle, color: 'text-green-600', label: 'Approved - Processing Payment' };
-    } else if (task.completion_status === 'pending' || task.has_pending_submission) {
-      return { icon: Clock, color: 'text-yellow-600', label: 'Pending Admin Review' };
-    } else if (task.completion_status === 'rejected') {
-      return { icon: AlertCircle, color: 'text-red-600', label: 'Rejected' };
-    }
-    return null;
-  };
-
   const handleSubmitCompletion = () => {
     setShowProofModal(true);
   };
@@ -58,16 +41,16 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
     onTaskCompletionSubmitted(task.id, proofData);
   };
 
-  const completionStatus = getCompletionStatus();
-  const canSubmitCompletion = !task.completed && !task.has_pending_submission && task.completion_status !== 'pending';
+  const handleToggle = () => {
+    onToggle(task.id, !task.completed);
+  };
 
   return (
     <>
       <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
         <Checkbox
           checked={task.completed}
-          disabled={true}
-          className="opacity-50"
+          onCheckedChange={handleToggle}
         />
         
         <div className="flex-1">
@@ -75,19 +58,13 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
             <span className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>
               {task.title}
             </span>
-            {completionStatus && (
-              <Badge variant="outline" className={`text-xs ${completionStatus.color}`}>
-                <completionStatus.icon className="h-3 w-3 mr-1" />
-                {completionStatus.label}
+            {task.completed && (
+              <Badge variant="outline" className="text-xs text-green-600">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Completed
               </Badge>
             )}
           </div>
-          
-          {task.admin_feedback && (
-            <div className="text-xs text-gray-600 mt-1">
-              <strong>Admin Feedback:</strong> {task.admin_feedback}
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -100,7 +77,7 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
             {task.reward_amount}
           </span>
 
-          {canSubmitCompletion && (
+          {!task.completed && (
             <Button
               variant="ghost"
               size="sm"
@@ -116,7 +93,7 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
             size="sm"
             onClick={() => onDelete(task.id)}
             className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            disabled={task.has_pending_submission || task.completed}
+            disabled={task.completed}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
