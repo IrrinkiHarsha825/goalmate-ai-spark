@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
@@ -8,14 +7,11 @@ import { TaskCreationControls } from "./TaskCreationControls";
 import { TaskList } from "./TaskList";
 import { TaskProgressDisplay } from "./TaskProgressDisplay";
 import { MilestoneProgress } from "./MilestoneProgress";
-import { AIVerificationService, ProofData } from "@/services/aiVerificationService";
 import type { Database } from "@/integrations/supabase/types";
 
 type Task = Database['public']['Tables']['tasks']['Row'] & {
-  verified?: boolean;
-  proof_text?: string;
-  proof_image_url?: string;
-  verification_feedback?: string;
+  proof_status?: 'pending' | 'approved' | 'rejected';
+  admin_feedback?: string;
 };
 type TaskInsert = Database['public']['Tables']['tasks']['Insert'];
 
@@ -118,78 +114,31 @@ export const GoalTasks = ({
     }
   };
 
-  const handleProofSubmitted = async (taskId: string, proofData: ProofData) => {
+  const handleProofSubmitted = async (taskId: string, proofData: any) => {
     try {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      // Get AI verification
-      const verification = await AIVerificationService.verifyProof(
-        task.title,
-        task.difficulty || 'medium',
-        proofData
-      );
+      // Submit proof for admin verification
+      console.log('Submitting proof for admin verification:', { taskId, proofData });
 
-      // For now, simulate database update until schema is updated
+      // For now, just update the task status to show it's pending admin review
+      // In a real implementation, you'd create a proof_submissions table
       const updatedTask = {
         ...task,
-        proof_text: proofData.text || `${proofData.type} proof submitted`,
-        verified: verification.verified,
-        verification_feedback: verification.feedback
+        proof_status: 'pending' as const,
       };
 
-      // Update local state
+      // Update local state to show pending status
       setTasks(prevTasks => 
         prevTasks.map(t => t.id === taskId ? updatedTask : t)
       );
 
-      if (verification.verified) {
-        // Add reward to goal and check milestones
-        const rewardAmount = task.reward_amount || 0;
-        const newCurrentAmount = goalCurrentAmount + rewardAmount;
+      toast({
+        title: "Proof Submitted! ⏳",
+        description: "Your proof has been submitted for admin verification. You'll be notified once it's reviewed.",
+      });
 
-        await supabase
-          .from('goals')
-          .update({ current_amount: newCurrentAmount })
-          .eq('id', goalId);
-
-        // Remove the completed task
-        await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', taskId);
-
-        const remainingTasks = tasks.filter(t => t.id !== taskId);
-        setTasks(remainingTasks);
-
-        // Recalculate rewards for remaining tasks
-        if (remainingTasks.length > 0 && commitmentAmount) {
-          await recalculateAllTaskRewards(remainingTasks);
-        }
-
-        // Check for milestone achievements
-        await checkAndUpdateMilestones(newCurrentAmount);
-
-        onTaskUpdate?.();
-
-        toast({
-          title: "✅ Task Verified!",
-          description: `Great work! You earned $${rewardAmount}. ${verification.feedback}`,
-        });
-      } else {
-        toast({
-          title: "❌ Verification Failed",
-          description: verification.feedback,
-          variant: "destructive",
-        });
-
-        if (verification.suggestions) {
-          toast({
-            title: "💡 Suggestions",
-            description: verification.suggestions.join(". "),
-          });
-        }
-      }
     } catch (error) {
       console.error('Error submitting proof:', error);
       toast({
@@ -394,7 +343,7 @@ export const GoalTasks = ({
           </CardTitle>
           {commitmentAmount > 0 && (
             <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks with proof verification to earn rewards! ${commitmentAmount} total is divided equally between all {totalTasks || 'your'} tasks.
+              💡 Complete tasks with proof submission to earn rewards! Admin will verify your proof and award ${commitmentAmount} total divided equally between all {totalTasks || 'your'} tasks.
             </div>
           )}
         </CardHeader>

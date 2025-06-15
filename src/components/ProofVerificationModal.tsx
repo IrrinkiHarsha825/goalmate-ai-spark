@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Upload, Github, BookOpen, Camera, Video } from "lucide-react";
+import { Upload, Github, BookOpen, Camera, Video, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProofVerificationModalProps {
@@ -83,7 +82,8 @@ export const ProofVerificationModal = ({
         coursePlatform,
         imageFile,
         videoFile,
-        goalType
+        goalType,
+        submittedAt: new Date().toISOString()
       };
 
       await onProofSubmitted(proofData);
@@ -99,10 +99,6 @@ export const ProofVerificationModal = ({
       setVideoFile(null);
       onOpenChange(false);
       
-      toast({
-        title: "Proof Submitted",
-        description: "Your proof of work has been submitted for AI verification",
-      });
     } catch (error) {
       console.error('Error submitting proof:', error);
       toast({
@@ -271,13 +267,22 @@ export const ProofVerificationModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Submit Proof of Work</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-600" />
+            Submit Proof for Admin Review
+          </DialogTitle>
           <p className="text-sm text-gray-600">
             Task: {task?.title}
           </p>
         </DialogHeader>
 
         <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              📋 Your proof will be reviewed by an admin. You'll be notified once it's approved and you can claim your reward.
+            </p>
+          </div>
+
           <div>
             <Label>Proof Type</Label>
             <div className="grid grid-cols-1 gap-2 mt-2">
@@ -306,7 +311,7 @@ export const ProofVerificationModal = ({
               disabled={submitting || !proofType}
               className="flex-1"
             >
-              {submitting ? "Submitting..." : "Submit Proof"}
+              {submitting ? "Submitting..." : "Submit for Admin Review"}
             </Button>
             <Button 
               variant="outline" 

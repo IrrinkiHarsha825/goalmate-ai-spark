@@ -8,10 +8,8 @@ import { ProofVerificationModal } from "./ProofVerificationModal";
 import type { Database } from "@/integrations/supabase/types";
 
 type Task = Database['public']['Tables']['tasks']['Row'] & {
-  verified?: boolean;
-  proof_text?: string;
-  proof_image_url?: string;
-  verification_feedback?: string;
+  proof_status?: 'pending' | 'approved' | 'rejected';
+  admin_feedback?: string;
 };
 
 interface TaskItemProps {
@@ -38,23 +36,23 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onProofSubmitted 
     }
   };
 
-  const getVerificationStatus = () => {
-    if (task.verified === true) {
-      return { icon: CheckCircle, color: 'text-green-600', label: 'Verified' };
-    } else if (task.proof_text || task.proof_image_url) {
-      return { icon: Clock, color: 'text-yellow-600', label: 'Pending' };
-    } else if (task.verified === false) {
+  const getProofStatus = () => {
+    if (task.proof_status === 'approved') {
+      return { icon: CheckCircle, color: 'text-green-600', label: 'Approved' };
+    } else if (task.proof_status === 'pending') {
+      return { icon: Clock, color: 'text-yellow-600', label: 'Pending Admin Review' };
+    } else if (task.proof_status === 'rejected') {
       return { icon: AlertCircle, color: 'text-red-600', label: 'Rejected' };
     }
     return null;
   };
 
   const handleCompleteTask = () => {
-    if (task.verified) {
-      // Task is already verified, complete it
+    if (task.proof_status === 'approved') {
+      // Task is verified by admin, complete it
       onToggle(task.id, true);
     } else {
-      // Need proof verification first
+      // Need to submit proof for admin verification
       setShowProofModal(true);
     }
   };
@@ -63,7 +61,7 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onProofSubmitted 
     onProofSubmitted(task.id, proofData);
   };
 
-  const verificationStatus = getVerificationStatus();
+  const proofStatus = getProofStatus();
 
   return (
     <>
@@ -71,23 +69,23 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onProofSubmitted 
         <Checkbox
           checked={false}
           onCheckedChange={handleCompleteTask}
-          disabled={task.proof_text && !task.verified}
+          disabled={task.proof_status && task.proof_status !== 'approved'}
         />
         
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="font-medium">{task.title}</span>
-            {verificationStatus && (
-              <Badge variant="outline" className={`text-xs ${verificationStatus.color}`}>
-                <verificationStatus.icon className="h-3 w-3 mr-1" />
-                {verificationStatus.label}
+            {proofStatus && (
+              <Badge variant="outline" className={`text-xs ${proofStatus.color}`}>
+                <proofStatus.icon className="h-3 w-3 mr-1" />
+                {proofStatus.label}
               </Badge>
             )}
           </div>
           
-          {task.verification_feedback && (
+          {task.admin_feedback && (
             <div className="text-xs text-gray-600 mt-1">
-              <strong>AI Feedback:</strong> {task.verification_feedback}
+              <strong>Admin Feedback:</strong> {task.admin_feedback}
             </div>
           )}
         </div>
@@ -102,7 +100,7 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onProofSubmitted 
             {task.reward_amount}
           </span>
 
-          {!task.verified && !task.proof_text && (
+          {!task.proof_status && (
             <Button
               variant="ghost"
               size="sm"
