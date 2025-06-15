@@ -67,20 +67,32 @@ const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log('Fetching payment submissions...');
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
         .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (paymentsError) throw paymentsError;
+      if (paymentsError) {
+        console.error('Error fetching payments:', paymentsError);
+        throw paymentsError;
+      }
+      
+      console.log('Payment submissions fetched:', payments);
       setPaymentSubmissions(payments || []);
 
+      console.log('Fetching withdrawal requests...');
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
         .select('*')
         .order('requested_at', { ascending: false });
 
-      if (withdrawalsError) throw withdrawalsError;
+      if (withdrawalsError) {
+        console.error('Error fetching withdrawals:', withdrawalsError);
+        throw withdrawalsError;
+      }
+      
+      console.log('Withdrawal requests fetched:', withdrawals);
       setWithdrawalRequests(withdrawals || []);
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -97,10 +109,16 @@ const Admin = () => {
   const handlePaymentAction = async (submissionId: string, action: 'approved' | 'rejected', notes?: string) => {
     setProcessingId(submissionId);
     try {
+      console.log(`Processing payment ${submissionId} with action: ${action}`);
+      
       const submission = paymentSubmissions.find(p => p.id === submissionId);
-      if (!submission) return;
+      if (!submission) {
+        console.error('Submission not found:', submissionId);
+        return;
+      }
 
       // Update payment submission status
+      console.log('Updating payment submission status...');
       const { error: submissionError } = await supabase
         .from('payment_submissions')
         .update({
@@ -111,25 +129,39 @@ const Admin = () => {
         })
         .eq('id', submissionId);
 
-      if (submissionError) throw submissionError;
+      if (submissionError) {
+        console.error('Error updating payment submission:', submissionError);
+        throw submissionError;
+      }
 
       if (action === 'approved') {
+        console.log('Payment approved, activating goal and updating wallet...');
+        
         // Activate the goal when payment is approved (change from 'inactive' to 'active')
         const { error: goalError } = await supabase
           .from('goals')
           .update({ status: 'active' })
           .eq('id', submission.goal_id);
 
-        if (goalError) throw goalError;
+        if (goalError) {
+          console.error('Error activating goal:', goalError);
+          throw goalError;
+        }
 
         // Update or create wallet with the investment amount
-        const { data: existingWallet } = await supabase
+        const { data: existingWallet, error: walletFetchError } = await supabase
           .from('wallets')
           .select('*')
           .eq('user_id', submission.user_id)
           .single();
 
+        if (walletFetchError && walletFetchError.code !== 'PGRST116') {
+          console.error('Error fetching wallet:', walletFetchError);
+          throw walletFetchError;
+        }
+
         if (existingWallet) {
+          console.log('Updating existing wallet...');
           const { error: walletError } = await supabase
             .from('wallets')
             .update({
@@ -138,8 +170,12 @@ const Admin = () => {
             })
             .eq('user_id', submission.user_id);
 
-          if (walletError) throw walletError;
+          if (walletError) {
+            console.error('Error updating wallet:', walletError);
+            throw walletError;
+          }
         } else {
+          console.log('Creating new wallet...');
           const { error: walletError } = await supabase
             .from('wallets')
             .insert({
@@ -148,16 +184,23 @@ const Admin = () => {
               total_invested: submission.amount,
             });
 
-          if (walletError) throw walletError;
+          if (walletError) {
+            console.error('Error creating wallet:', walletError);
+            throw walletError;
+          }
         }
       } else {
+        console.log('Payment rejected, keeping goal inactive...');
         // If rejected, keep goal inactive or set it to rejected
         const { error: goalError } = await supabase
           .from('goals')
           .update({ status: 'inactive' })
           .eq('id', submission.goal_id);
 
-        if (goalError) throw goalError;
+        if (goalError) {
+          console.error('Error updating goal status:', goalError);
+          throw goalError;
+        }
       }
 
       toast({
@@ -165,7 +208,9 @@ const Admin = () => {
         description: `Payment submission has been ${action}${action === 'approved' ? ' and goal activated' : ''}`,
       });
 
-      fetchData();
+      console.log('Action completed, refreshing data...');
+      // Refresh the data to show updated list
+      await fetchData();
     } catch (error) {
       console.error('Error processing payment:', error);
       toast({
