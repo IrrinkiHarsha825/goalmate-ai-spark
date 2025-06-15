@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Target, LogOut, Check, X, DollarSign, Users, FileText } from "lucide-react";
+import { Target, LogOut, Check, X, DollarSign, FileText, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -215,9 +215,9 @@ const Admin = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-100 flex items-center justify-center">
         <div className="text-center">
-          <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <Shield className="h-12 w-12 text-red-600 animate-spin mx-auto mb-4" />
           <p className="text-lg text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
@@ -225,23 +225,26 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-100">
+      {/* Admin Navigation */}
+      <nav className="bg-red-600 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <Target className="h-8 w-8 text-purple-600" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                GoalMate Admin
+              <Shield className="h-8 w-8 text-white" />
+              <span className="text-2xl font-bold text-white">
+                Admin Panel
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Admin: {user?.email}</span>
+              <Badge variant="secondary" className="bg-red-100 text-red-800">
+                Administrator
+              </Badge>
+              <span className="text-white text-sm">{user?.email}</span>
               <Button
                 variant="outline"
                 onClick={handleSignOut}
-                className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                className="border-white text-white hover:bg-red-700"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
@@ -251,20 +254,56 @@ const Admin = () => {
         </div>
       </nav>
 
-      {/* Admin Dashboard */}
+      {/* Admin Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage payment submissions and withdrawal requests</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Administration Dashboard</h1>
+          <p className="text-gray-600">Manage payments, withdrawals, and user requests</p>
+        </div>
+
+        {/* Admin Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-red-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Pending Payments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {paymentSubmissions.filter(p => p.status === 'pending').length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-orange-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Pending Withdrawals</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {withdrawalRequests.filter(w => w.status === 'pending').length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-green-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {paymentSubmissions.length + withdrawalRequests.length}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="payments" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="payments" className="flex items-center space-x-2">
+          <TabsList className="grid w-full grid-cols-2 bg-red-100">
+            <TabsTrigger value="payments" className="flex items-center space-x-2 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <FileText className="h-4 w-4" />
               <span>Payment Submissions</span>
             </TabsTrigger>
-            <TabsTrigger value="withdrawals" className="flex items-center space-x-2">
+            <TabsTrigger value="withdrawals" className="flex items-center space-x-2 data-[state=active]:bg-red-600 data-[state=active]:text-white">
               <DollarSign className="h-4 w-4" />
               <span>Withdrawal Requests</span>
             </TabsTrigger>
@@ -325,7 +364,7 @@ const PaymentSubmissionCard = ({
   const [notes, setNotes] = useState(submission.admin_notes || "");
 
   return (
-    <Card>
+    <Card className="border-l-4 border-l-blue-500">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -415,7 +454,7 @@ const WithdrawalRequestCard = ({
   const [notes, setNotes] = useState(request.admin_notes || "");
 
   return (
-    <Card>
+    <Card className="border-l-4 border-l-yellow-500">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
