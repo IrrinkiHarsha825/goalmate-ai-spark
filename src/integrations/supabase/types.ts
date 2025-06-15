@@ -9,6 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      goal_verifications: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          goal_id: string
+          id: string
+          payment_amount: number
+          submitted_at: string
+          transaction_id: string
+          updated_at: string
+          user_id: string
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          goal_id: string
+          id?: string
+          payment_amount: number
+          submitted_at?: string
+          transaction_id: string
+          updated_at?: string
+          user_id: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          goal_id?: string
+          id?: string
+          payment_amount?: number
+          submitted_at?: string
+          transaction_id?: string
+          updated_at?: string
+          user_id?: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_verifications_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string | null
@@ -21,6 +74,7 @@ export type Database = {
           title: string
           updated_at: string | null
           user_id: string
+          verification_status: string | null
         }
         Insert: {
           created_at?: string | null
@@ -33,6 +87,7 @@ export type Database = {
           title: string
           updated_at?: string | null
           user_id: string
+          verification_status?: string | null
         }
         Update: {
           created_at?: string | null
@@ -45,6 +100,7 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string
+          verification_status?: string | null
         }
         Relationships: []
       }

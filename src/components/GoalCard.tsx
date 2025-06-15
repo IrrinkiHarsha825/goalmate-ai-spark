@@ -16,13 +16,18 @@ interface GoalCardProps {
 }
 
 export const GoalCard = ({ goal, onView }: GoalCardProps) => {
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'inactive':
+  const getStatusBadge = (status: string, verificationStatus?: string) => {
+    // Use verification_status if available, otherwise fall back to status
+    const currentStatus = verificationStatus || status;
+    
+    switch (currentStatus) {
+      case 'unverified':
+      case 'pending_verification':
         return <Badge variant="secondary" className="bg-amber-100 text-amber-800">
           <Clock className="w-3 h-3 mr-1" />
           Payment Pending
         </Badge>;
+      case 'verified':
       case 'active':
         return <Badge variant="default" className="bg-green-100 text-green-800">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -33,24 +38,34 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
           <Target className="w-3 h-3 mr-1" />
           Completed
         </Badge>;
+      case 'rejected':
       case 'failed':
         return <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
-          Failed
+          {currentStatus === 'rejected' ? 'Payment Rejected' : 'Failed'}
         </Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{currentStatus}</Badge>;
     }
   };
 
-  const getStatusMessage = (status: string) => {
-    switch (status) {
-      case 'inactive':
+  const getStatusMessage = (status: string, verificationStatus?: string) => {
+    const currentStatus = verificationStatus || status;
+    
+    switch (currentStatus) {
+      case 'unverified':
+        return {
+          title: "💳 Payment Required",
+          message: "Submit your payment to activate this goal and start earning rewards.",
+          icon: <AlertCircle className="w-5 h-5 text-blue-500" />
+        };
+      case 'pending_verification':
         return {
           title: "⏳ Awaiting Payment Verification",
-          message: "Your goal is locked until admin verifies your payment submission. Please wait for approval.",
+          message: "Your payment submission is pending admin verification. Please wait for approval.",
           icon: <Lock className="w-5 h-5 text-amber-500" />
         };
+      case 'verified':
       case 'active':
         return null;
       case 'completed':
@@ -58,6 +73,12 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
           title: "🎉 Goal Completed!",
           message: "Congratulations! You've successfully completed this goal.",
           icon: <CheckCircle className="w-5 h-5 text-green-500" />
+        };
+      case 'rejected':
+        return {
+          title: "❌ Payment Rejected",
+          message: "Your payment was rejected by admin. Please contact support or resubmit with correct details.",
+          icon: <XCircle className="w-5 h-5 text-red-500" />
         };
       case 'failed':
         return {
@@ -70,14 +91,15 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
     }
   };
 
-  const statusInfo = getStatusMessage(goal.status || 'active');
-  const isLocked = goal.status === 'inactive';
+  const statusInfo = getStatusMessage(goal.status || 'active', goal.verification_status);
+  const isLocked = ['unverified', 'pending_verification', 'rejected'].includes(goal.verification_status || goal.status || '');
+  const isActive = ['verified', 'active'].includes(goal.verification_status || goal.status || '');
   const isCompleted = goal.status === 'completed';
-  const isFailed = goal.status === 'failed';
+  const isFailed = goal.status === 'failed' || goal.verification_status === 'rejected';
 
   // Calculate progress (placeholder for now)
-  const progress = goal.status === 'completed' ? 100 : 
-                  goal.status === 'active' ? 45 : 0;
+  const progress = isCompleted ? 100 : 
+                  isActive ? 45 : 0;
 
   return (
     <Card className={`transition-all duration-200 hover:shadow-lg ${
@@ -97,7 +119,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
             </CardDescription>
           </div>
           <div className="ml-3">
-            {getStatusBadge(goal.status || 'active')}
+            {getStatusBadge(goal.status || 'active', goal.verification_status)}
           </div>
         </div>
       </CardHeader>
@@ -133,7 +155,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
         )}
 
         {/* Progress Bar (only for active goals) */}
-        {goal.status === 'active' && (
+        {isActive && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Progress</span>
@@ -171,7 +193,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
               disabled
             >
               <Lock className="w-4 h-4 mr-2" />
-              Locked - Awaiting Payment Verification
+              {goal.verification_status === 'pending_verification' ? 'Awaiting Verification' : 'Payment Required'}
             </Button>
           ) : isCompleted ? (
             <Button 

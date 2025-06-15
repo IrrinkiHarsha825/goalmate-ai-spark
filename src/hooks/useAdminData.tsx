@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +24,21 @@ interface WithdrawalRequest {
   admin_notes?: string;
 }
 
+interface GoalVerification {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  payment_amount: number;
+  transaction_id: string;
+  verification_status: string;
+  verified_by?: string;
+  verified_at?: string;
+  admin_notes?: string;
+  submitted_at: string;
+  user_email?: string;
+  goal_title?: string;
+}
+
 interface TaskCompletionSubmission {
   id: string;
   task_id: string;
@@ -43,6 +57,7 @@ interface TaskCompletionSubmission {
 
 export const useAdminData = () => {
   const [paymentSubmissions, setPaymentSubmissions] = useState<PaymentSubmission[]>([]);
+  const [goalVerifications, setGoalVerifications] = useState<GoalVerification[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
   const [taskCompletionSubmissions, setTaskCompletionSubmissions] = useState<TaskCompletionSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +67,32 @@ export const useAdminData = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch goal verifications (new payment verification system)
+      console.log('Fetching goal verifications...');
+      const { data: verifications, error: verificationsError } = await supabase
+        .from('goal_verifications')
+        .select(`
+          *,
+          goals(title),
+          profiles(email)
+        `)
+        .order('submitted_at', { ascending: false });
+
+      if (verificationsError) {
+        console.error('Error fetching goal verifications:', verificationsError);
+        throw verificationsError;
+      }
+
+      const formattedVerifications = (verifications || []).map(verification => ({
+        ...verification,
+        user_email: verification.profiles?.email,
+        goal_title: verification.goals?.title
+      }));
+      
+      console.log('Goal verifications fetched:', formattedVerifications);
+      setGoalVerifications(formattedVerifications);
+
+      // Still fetch old payment submissions for backward compatibility
       console.log('Fetching payment submissions...');
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
@@ -84,34 +125,6 @@ export const useAdminData = () => {
       console.log('Task completion submissions table not yet available');
       setTaskCompletionSubmissions([]);
 
-      // TODO: Uncomment this when task_completion_submissions table exists
-      /*
-      console.log('Fetching task completion submissions...');
-      const { data: taskCompletions, error: taskCompletionsError } = await supabase
-        .from('task_completion_submissions')
-        .select(`
-          *,
-          tasks(title),
-          goals(title),
-          profiles(email)
-        `)
-        .order('submitted_at', { ascending: false });
-
-      if (taskCompletionsError) {
-        console.error('Error fetching task completions:', taskCompletionsError);
-        throw taskCompletionsError;
-      }
-      
-      const formattedTaskCompletions = (taskCompletions || []).map(tc => ({
-        ...tc,
-        task_title: tc.tasks?.title,
-        user_email: tc.profiles?.email,
-        goal_title: tc.goals?.title
-      }));
-      
-      console.log('Task completion submissions fetched:', formattedTaskCompletions);
-      setTaskCompletionSubmissions(formattedTaskCompletions);
-      */
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -132,6 +145,16 @@ export const useAdminData = () => {
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  const updateGoalVerificationStatus = (id: string, status: string, notes?: string) => {
+    setGoalVerifications(prev => 
+      prev.map(verification => 
+        verification.id === id 
+          ? { ...verification, verification_status: status, admin_notes: notes }
+          : verification
+      )
+    );
+  };
 
   const updatePaymentSubmissionStatus = (id: string, status: string, notes?: string) => {
     setPaymentSubmissions(prev => 
@@ -165,11 +188,13 @@ export const useAdminData = () => {
 
   return {
     paymentSubmissions,
+    goalVerifications,
     withdrawalRequests,
     taskCompletionSubmissions,
     loading,
     fetchData,
     updatePaymentSubmissionStatus,
+    updateGoalVerificationStatus,
     updateWithdrawalRequestStatus,
     updateTaskCompletionSubmissionStatus
   };

@@ -38,6 +38,7 @@ export const GoalTasks = ({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [goalVerificationStatus, setGoalVerificationStatus] = useState<string>('unverified');
   const { toast } = useToast();
 
   // Calculate equal reward per task by dividing total commitment by number of tasks
@@ -72,6 +73,22 @@ export const GoalTasks = ({
     }
   };
 
+  const fetchGoalVerificationStatus = async () => {
+    try {
+      const { data: goal, error } = await supabase
+        .from('goals')
+        .select('verification_status, status')
+        .eq('id', goalId)
+        .single();
+
+      if (error) throw error;
+
+      setGoalVerificationStatus(goal.verification_status || 'unverified');
+    } catch (error) {
+      console.error('Error fetching goal verification status:', error);
+    }
+  };
+
   const fetchTasks = async () => {
     try {
       const { data: tasksData, error: tasksError } = await supabase
@@ -82,8 +99,6 @@ export const GoalTasks = ({
 
       if (tasksError) throw tasksError;
 
-      // For now, just use the basic task data without completion status
-      // TODO: Once task_completion_submissions table is created, fetch and merge completion status
       setTasks(tasksData || []);
       
       if (tasksData && tasksData.length > 0 && commitmentAmount) {
@@ -96,6 +111,7 @@ export const GoalTasks = ({
 
   useEffect(() => {
     fetchTasks();
+    fetchGoalVerificationStatus();
   }, [goalId, commitmentAmount]);
 
   const checkAndUpdateMilestones = async (newCurrentAmount: number) => {
@@ -244,11 +260,11 @@ export const GoalTasks = ({
   };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
-    // Only allow task completion if goal is active
-    if (goalStatus !== 'active') {
+    // Only allow task completion if goal is verified/active
+    if (goalVerificationStatus !== 'verified' && goalStatus !== 'active') {
       toast({
         title: "Goal Not Active",
-        description: "Wait for admin to approve your payment before completing tasks",
+        description: "Wait for admin to verify your payment before completing tasks",
         variant: "destructive",
       });
       return;
@@ -363,7 +379,7 @@ export const GoalTasks = ({
 
   const totalTasks = tasks.length;
   const rewardPerTask = totalTasks > 0 ? calculateEqualTaskReward(totalTasks, commitmentAmount) : 0;
-  const isGoalActive = goalStatus === 'active';
+  const isGoalActive = goalVerificationStatus === 'verified' || goalStatus === 'active';
 
   return (
     <div className="space-y-4">
@@ -384,7 +400,7 @@ export const GoalTasks = ({
           
           {!isGoalActive && (
             <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-              🔒 <strong>Goal Locked:</strong> Tasks are locked until admin approves your payment submission. You can create tasks but cannot complete them yet.
+              🔒 <strong>Goal Locked:</strong> Tasks are locked until admin verifies your payment submission. You can create tasks but cannot complete them yet.
             </div>
           )}
           
@@ -407,7 +423,7 @@ export const GoalTasks = ({
           <TaskList
             tasks={tasks}
             goalType={goalType}
-            goalStatus={goalStatus}
+            goalStatus={isGoalActive ? 'active' : 'inactive'}
             onToggleTask={toggleTask}
             onDeleteTask={deleteTask}
             onTaskCompletionSubmitted={handleTaskCompletionSubmitted}

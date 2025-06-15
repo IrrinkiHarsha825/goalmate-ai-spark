@@ -61,38 +61,38 @@ export const PaymentSubmissionModal = ({
 
     setLoading(true);
     try {
-      console.log('Submitting payment with data:', {
+      console.log('Submitting payment verification with data:', {
         user_id: user.id,
         goal_id: goalId,
         transaction_id: transactionId.trim(),
-        amount: Number(amount),
+        payment_amount: Number(amount),
       });
 
-      // Check if there's already a pending submission for this goal
-      const { data: existingSubmission, error: checkError } = await supabase
-        .from('payment_submissions')
-        .select('id, status')
+      // Check if there's already a pending verification for this goal
+      const { data: existingVerification, error: checkError } = await supabase
+        .from('goal_verifications')
+        .select('id, verification_status')
         .eq('goal_id', goalId)
         .eq('user_id', user.id)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing submissions:', checkError);
+        console.error('Error checking existing verifications:', checkError);
         throw checkError;
       }
 
-      if (existingSubmission) {
-        if (existingSubmission.status === 'pending') {
+      if (existingVerification) {
+        if (existingVerification.verification_status === 'pending') {
           toast({
-            title: "Submission Already Exists",
-            description: "You already have a pending payment submission for this goal",
+            title: "Verification Already Exists",
+            description: "You already have a pending payment verification for this goal",
             variant: "destructive",
           });
           return;
-        } else if (existingSubmission.status === 'approved') {
+        } else if (existingVerification.verification_status === 'verified') {
           toast({
-            title: "Payment Already Approved",
-            description: "This goal already has an approved payment",
+            title: "Payment Already Verified",
+            description: "This goal already has a verified payment",
             variant: "destructive",
           });
           return;
@@ -100,23 +100,36 @@ export const PaymentSubmissionModal = ({
       }
 
       const { data, error } = await supabase
-        .from('payment_submissions')
+        .from('goal_verifications')
         .insert({
           user_id: user.id,
           goal_id: goalId,
           transaction_id: transactionId.trim(),
-          amount: Number(amount),
-          status: 'pending'
+          payment_amount: Number(amount),
+          verification_status: 'pending'
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Payment submission error:', error);
+        console.error('Payment verification submission error:', error);
         throw error;
       }
 
-      console.log('Payment submitted successfully:', data);
+      console.log('Payment verification submitted successfully:', data);
+
+      // Update goal status to pending_verification
+      const { error: goalError } = await supabase
+        .from('goals')
+        .update({ 
+          verification_status: 'pending_verification',
+          status: 'inactive'
+        })
+        .eq('id', goalId);
+
+      if (goalError) {
+        console.error('Error updating goal status:', goalError);
+      }
 
       toast({
         title: "Payment Submitted Successfully! ✅",
@@ -127,7 +140,7 @@ export const PaymentSubmissionModal = ({
       onOpenChange(false);
       onPaymentSubmitted();
     } catch (error: any) {
-      console.error('Error submitting payment:', error);
+      console.error('Error submitting payment verification:', error);
       toast({
         title: "Payment Submission Failed",
         description: error?.message || "Failed to submit payment. Please try again.",
