@@ -8,7 +8,9 @@ import { AdminTabs } from "@/components/admin/AdminTabs";
 import { AdminLoadingScreen } from "@/components/admin/AdminLoadingScreen";
 import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminActions } from "@/hooks/useAdminActions";
-import { Card, CardContent, CheckSquare } from "@chakra-ui/react";
+import { Card, CardContent } from "@/components/ui/card";
+import { CheckSquare } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Admin = () => {
   const { user, signOut } = useAuth();
