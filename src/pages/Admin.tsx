@@ -15,8 +15,20 @@ const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const { paymentSubmissions, withdrawalRequests, loading, fetchData } = useAdminData();
-  const { processingId, handlePaymentAction, handleWithdrawalAction } = useAdminActions(fetchData);
+  const { 
+    paymentSubmissions, 
+    withdrawalRequests, 
+    loading, 
+    fetchData,
+    updatePaymentSubmissionStatus,
+    updateWithdrawalRequestStatus
+  } = useAdminData();
+  
+  const { processingId, handlePaymentAction, handleWithdrawalAction } = useAdminActions(
+    fetchData,
+    updatePaymentSubmissionStatus,
+    updateWithdrawalRequestStatus
+  );
 
   useEffect(() => {
     if (!user) {

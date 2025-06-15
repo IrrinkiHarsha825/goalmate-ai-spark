@@ -74,16 +74,44 @@ export const useAdminData = () => {
     }
   };
 
+  // Auto-refresh data every 30 seconds to ensure UI stays updated
   useEffect(() => {
     if (user) {
       fetchData();
+      
+      // Set up auto-refresh
+      const interval = setInterval(fetchData, 30000);
+      return () => clearInterval(interval);
     }
   }, [user]);
+
+  // Optimistically update local state after actions
+  const updatePaymentSubmissionStatus = (id: string, status: string, notes?: string) => {
+    setPaymentSubmissions(prev => 
+      prev.map(submission => 
+        submission.id === id 
+          ? { ...submission, status, admin_notes: notes }
+          : submission
+      )
+    );
+  };
+
+  const updateWithdrawalRequestStatus = (id: string, status: string, notes?: string) => {
+    setWithdrawalRequests(prev => 
+      prev.map(request => 
+        request.id === id 
+          ? { ...request, status, admin_notes: notes }
+          : request
+      )
+    );
+  };
 
   return {
     paymentSubmissions,
     withdrawalRequests,
     loading,
-    fetchData
+    fetchData,
+    updatePaymentSubmissionStatus,
+    updateWithdrawalRequestStatus
   };
 };

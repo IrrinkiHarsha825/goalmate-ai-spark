@@ -1,15 +1,26 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-export const useAdminActions = (onDataUpdate: () => Promise<void>) => {
+export const useAdminActions = (
+  onDataUpdate: () => Promise<void>,
+  updatePaymentStatus?: (id: string, status: string, notes?: string) => void,
+  updateWithdrawalStatus?: (id: string, status: string, notes?: string) => void
+) => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const handlePaymentAction = async (submissionId: string, action: 'approved' | 'rejected', notes?: string) => {
     setProcessingId(submissionId);
+    
+    // Optimistically update UI
+    if (updatePaymentStatus) {
+      updatePaymentStatus(submissionId, action, notes);
+    }
+
     try {
       console.log(`Processing payment ${submissionId} with action: ${action}`);
       
@@ -121,6 +132,10 @@ export const useAdminActions = (onDataUpdate: () => Promise<void>) => {
       await onDataUpdate();
     } catch (error) {
       console.error('Error processing payment:', error);
+      
+      // Revert optimistic update on error
+      await onDataUpdate();
+      
       toast({
         title: "Error",
         description: "Failed to process payment",
@@ -133,6 +148,12 @@ export const useAdminActions = (onDataUpdate: () => Promise<void>) => {
 
   const handleWithdrawalAction = async (requestId: string, action: 'approved' | 'rejected', notes?: string) => {
     setProcessingId(requestId);
+    
+    // Optimistically update UI
+    if (updateWithdrawalStatus) {
+      updateWithdrawalStatus(requestId, action, notes);
+    }
+
     try {
       const { data: request, error: fetchError } = await supabase
         .from('withdrawal_requests')
@@ -181,6 +202,10 @@ export const useAdminActions = (onDataUpdate: () => Promise<void>) => {
       await onDataUpdate();
     } catch (error) {
       console.error('Error processing withdrawal:', error);
+      
+      // Revert optimistic update on error
+      await onDataUpdate();
+      
       toast({
         title: "Error",
         description: "Failed to process withdrawal",
