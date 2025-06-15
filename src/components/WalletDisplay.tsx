@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } = "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { WithdrawalRequestModal } from "./WithdrawalRequestModal";
 
 interface WalletData {
