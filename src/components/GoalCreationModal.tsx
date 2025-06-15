@@ -87,7 +87,9 @@ export const GoalCreationModal = ({
 
     setLoading(true);
     try {
-      // Create the goal with 'inactive' status instead of 'pending_payment'
+      console.log('Creating goal with data:', goalData);
+      
+      // Create the goal with 'inactive' status - this will be pending until payment is approved
       const { data: goal, error: goalError } = await supabase
         .from('goals')
         .insert({
@@ -96,21 +98,25 @@ export const GoalCreationModal = ({
           description: goalData.description,
           target_amount: parseFloat(goalData.commitmentAmount),
           deadline: goalData.deadline || null,
-          status: 'inactive' // Using 'inactive' instead of 'pending_payment'
+          status: 'inactive' // Goal starts as inactive until payment is verified
         })
         .select()
         .single();
 
-      if (goalError) throw goalError;
+      if (goalError) {
+        console.error('Goal creation error:', goalError);
+        throw goalError;
+      }
 
+      console.log('Goal created successfully:', goal);
       setCreatedGoalId(goal.id);
       
-      // Show payment submission modal
+      // Close this modal and show payment submission modal
       setShowPaymentModal(true);
 
       toast({
-        title: "Goal Created!",
-        description: "Now complete your payment to activate your goal",
+        title: "Goal Created Successfully! 🎯",
+        description: "Now submit your payment transaction ID to activate your goal",
       });
 
     } catch (error) {
@@ -147,8 +153,8 @@ export const GoalCreationModal = ({
     }
 
     toast({
-      title: "Payment Submitted! ⏳",
-      description: "Your goal will be activated once admin approves your payment",
+      title: "Payment Submitted Successfully! ⏳",
+      description: "Your goal is now pending. It will be activated once admin approves your payment.",
     });
   };
 
@@ -389,13 +395,13 @@ export const GoalCreationModal = ({
                       </div>
                     </div>
 
-                    <div className="bg-amber-50 p-4 rounded-lg">
+                    <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                       <div className="flex items-center space-x-2 mb-2">
-                        <Clock className="h-5 w-5 text-amber-600" />
-                        <span className="font-medium text-amber-900">Payment Required</span>
+                        <Target className="h-5 w-5 text-green-600" />
+                        <span className="font-medium text-green-900">Ready to Create Goal</span>
                       </div>
-                      <p className="text-amber-800 text-sm">
-                        Simply submit your transaction ID after making the payment. Admin will verify and activate your goal.
+                      <p className="text-green-800 text-sm">
+                        Click "Create Goal & Proceed to Payment" to create your goal and then submit your payment transaction ID.
                       </p>
                     </div>
                   </CardContent>
@@ -410,7 +416,7 @@ export const GoalCreationModal = ({
                     disabled={loading || !goalData.commitmentAmount || !goalData.upiId}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    {loading ? "Creating Goal..." : "Create Goal & Pay"}
+                    {loading ? "Creating Goal..." : "Create Goal & Proceed to Payment"}
                     <Target className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
