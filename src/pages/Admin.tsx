@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,7 +114,7 @@ const Admin = () => {
       if (submissionError) throw submissionError;
 
       if (action === 'approved') {
-        // Activate the goal when payment is approved
+        // Activate the goal when payment is approved (change from 'inactive' to 'active')
         const { error: goalError } = await supabase
           .from('goals')
           .update({ status: 'active' })
@@ -152,10 +151,10 @@ const Admin = () => {
           if (walletError) throw walletError;
         }
       } else {
-        // If rejected, set goal status back to pending or rejected
+        // If rejected, keep goal inactive or set it to rejected
         const { error: goalError } = await supabase
           .from('goals')
-          .update({ status: 'payment_rejected' })
+          .update({ status: 'inactive' })
           .eq('id', submission.goal_id);
 
         if (goalError) throw goalError;

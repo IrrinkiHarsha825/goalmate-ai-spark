@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,7 @@ export const GoalCreationModal = ({
 
     setLoading(true);
     try {
-      // Create the goal first
+      // Create the goal with 'inactive' status instead of 'pending_payment'
       const { data: goal, error: goalError } = await supabase
         .from('goals')
         .insert({
@@ -97,7 +96,7 @@ export const GoalCreationModal = ({
           description: goalData.description,
           target_amount: parseFloat(goalData.commitmentAmount),
           deadline: goalData.deadline || null,
-          status: 'pending_payment' // Set status to pending payment
+          status: 'inactive' // Using 'inactive' instead of 'pending_payment'
         })
         .select()
         .single();
@@ -396,8 +395,7 @@ export const GoalCreationModal = ({
                         <span className="font-medium text-amber-900">Payment Required</span>
                       </div>
                       <p className="text-amber-800 text-sm">
-                        Your goal will be created in "pending payment" status. Once you submit payment proof, 
-                        admin will verify and activate your goal for tracking.
+                        Simply submit your transaction ID after making the payment. Admin will verify and activate your goal.
                       </p>
                     </div>
                   </CardContent>

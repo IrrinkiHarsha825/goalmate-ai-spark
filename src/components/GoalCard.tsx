@@ -18,7 +18,7 @@ interface GoalCardProps {
 export const GoalCard = ({ goal, onView }: GoalCardProps) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending_payment':
+      case 'inactive':
         return <Badge variant="secondary" className="bg-amber-100 text-amber-800">
           <Clock className="w-3 h-3 mr-1" />
           Payment Pending
@@ -45,7 +45,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
 
   const getStatusMessage = (status: string) => {
     switch (status) {
-      case 'pending_payment':
+      case 'inactive':
         return {
           title: "Payment Verification Required",
           message: "Your goal is waiting for admin to verify your payment submission.",
@@ -59,7 +59,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
   };
 
   const statusInfo = getStatusMessage(goal.status || 'active');
-  const isLocked = goal.status === 'pending_payment';
+  const isLocked = goal.status === 'inactive';
 
   // Calculate progress (placeholder for now)
   const progress = goal.status === 'completed' ? 100 : 
