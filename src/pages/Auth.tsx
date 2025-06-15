@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Target, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,11 +17,27 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [selectedRoute, setSelectedRoute] = useState<'dashboard' | 'admin'>('dashboard');
   const [loading, setLoading] = useState(false);
   
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const checkUserRole = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error checking user role:', error);
+      return 'user';
+    }
+    
+    return data?.role || 'user';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +47,31 @@ const Auth = () => {
       let result;
       if (isLogin) {
         result = await signIn(email, password);
+        
+        if (!result.error && result.data?.user) {
+          const userRole = await checkUserRole(result.data.user.id);
+          
+          toast({
+            title: "Welcome back!",
+            description: "Successfully signed in to GoalMate",
+          });
+
+          // Navigate based on user role and selected route
+          if (userRole === 'admin' && selectedRoute === 'admin') {
+            navigate('/admin');
+          } else {
+            navigate('/');
+          }
+        }
       } else {
         result = await signUp(email, password, fullName, role);
+        
+        if (!result.error) {
+          toast({
+            title: "Account created!",
+            description: "Please check your email to verify your account",
+          });
+        }
       }
 
       if (result.error) {
@@ -40,19 +80,6 @@ const Auth = () => {
           description: result.error.message || "An error occurred",
           variant: "destructive",
         });
-      } else {
-        if (isLogin) {
-          toast({
-            title: "Welcome back!",
-            description: "Successfully signed in to GoalMate",
-          });
-          navigate('/');
-        } else {
-          toast({
-            title: "Account created!",
-            description: "Please check your email to verify your account",
-          });
-        }
       }
     } catch (error) {
       toast({
@@ -151,6 +178,21 @@ const Auth = () => {
                   required
                 />
               </div>
+
+              {isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="route">Destination (for admins)</Label>
+                  <Select value={selectedRoute} onValueChange={(value: 'dashboard' | 'admin') => setSelectedRoute(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dashboard">Main Dashboard</SelectItem>
+                      <SelectItem value="admin">Admin Panel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <Button
                 type="submit"
