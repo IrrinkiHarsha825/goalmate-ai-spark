@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,6 +80,12 @@ export const useAdminData = () => {
       console.log('Withdrawal requests fetched:', withdrawals);
       setWithdrawalRequests(withdrawals || []);
 
+      // For now, set empty task completion submissions until the table exists
+      console.log('Task completion submissions table not yet available');
+      setTaskCompletionSubmissions([]);
+
+      // TODO: Uncomment this when task_completion_submissions table exists
+      /*
       console.log('Fetching task completion submissions...');
       const { data: taskCompletions, error: taskCompletionsError } = await supabase
         .from('task_completion_submissions')
@@ -95,7 +102,6 @@ export const useAdminData = () => {
         throw taskCompletionsError;
       }
       
-      // Transform the data to flatten joined fields
       const formattedTaskCompletions = (taskCompletions || []).map(tc => ({
         ...tc,
         task_title: tc.tasks?.title,
@@ -105,6 +111,7 @@ export const useAdminData = () => {
       
       console.log('Task completion submissions fetched:', formattedTaskCompletions);
       setTaskCompletionSubmissions(formattedTaskCompletions);
+      */
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -117,18 +124,15 @@ export const useAdminData = () => {
     }
   };
 
-  // Auto-refresh data every 30 seconds to ensure UI stays updated
   useEffect(() => {
     if (user) {
       fetchData();
       
-      // Set up auto-refresh
       const interval = setInterval(fetchData, 30000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  // Optimistically update local state after actions
   const updatePaymentSubmissionStatus = (id: string, status: string, notes?: string) => {
     setPaymentSubmissions(prev => 
       prev.map(submission => 

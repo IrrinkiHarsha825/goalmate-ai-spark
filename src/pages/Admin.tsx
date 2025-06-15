@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +41,6 @@ const Admin = () => {
       return;
     }
 
-    // Check admin role from user metadata instead of database
     const userRole = user.user_metadata?.role || 'user';
     console.log('User role from metadata:', userRole);
     
@@ -61,92 +61,11 @@ const Admin = () => {
   };
 
   const handleTaskCompletionAction = async (id: string, action: 'approved' | 'rejected', notes?: string) => {
-    try {
-      const submission = taskCompletionSubmissions.find(s => s.id === id);
-      if (!submission) return;
-
-      // Update the task completion submission
-      const { error: updateError } = await supabase
-        .from('task_completion_submissions')
-        .update({
-          status: action,
-          admin_notes: notes,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      if (action === 'approved') {
-        // Update user's wallet balance
-        const { data: wallet, error: walletFetchError } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('user_id', submission.user_id)
-          .single();
-
-        if (walletFetchError) {
-          // Create wallet if it doesn't exist
-          const { error: walletCreateError } = await supabase
-            .from('wallets')
-            .insert({
-              user_id: submission.user_id,
-              balance: submission.reward_amount,
-              total_invested: 0
-            });
-
-          if (walletCreateError) throw walletCreateError;
-        } else {
-          // Update existing wallet
-          const { error: walletUpdateError } = await supabase
-            .from('wallets')
-            .update({
-              balance: (wallet.balance || 0) + submission.reward_amount
-            })
-            .eq('user_id', submission.user_id);
-
-          if (walletUpdateError) throw walletUpdateError;
-        }
-
-        // Update goal's current amount
-        const { error: goalUpdateError } = await supabase
-          .from('goals')
-          .update({
-            current_amount: supabase.sql`current_amount + ${submission.reward_amount}`
-          })
-          .eq('id', submission.goal_id);
-
-        if (goalUpdateError) throw goalUpdateError;
-
-        // Mark the task as completed
-        const { error: taskUpdateError } = await supabase
-          .from('tasks')
-          .update({ completed: true })
-          .eq('id', submission.task_id);
-
-        if (taskUpdateError) throw taskUpdateError;
-      }
-
-      // Update local state
-      updateTaskCompletionSubmissionStatus(id, action, notes);
-
-      toast({
-        title: action === 'approved' ? "Task Completion Approved" : "Task Completion Rejected",
-        description: action === 'approved' 
-          ? `Payment of $${submission.reward_amount} has been credited to user's wallet`
-          : "Task completion has been rejected",
-      });
-
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error('Error handling task completion action:', error);
-      toast({
-        title: "Error",
-        description: "Failed to process task completion",
-        variant: "destructive",
-      });
-    }
+    // TODO: Implement this when task_completion_submissions table exists
+    toast({
+      title: "Feature Coming Soon",
+      description: "Task completion review will be available after database setup",
+    });
   };
 
   if (loading) {

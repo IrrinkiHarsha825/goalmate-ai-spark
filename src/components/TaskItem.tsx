@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Trash2, Shield, CheckCircle, AlertCircle, Clock, Send } from "lucide-react";
+import { DollarSign, Trash2, CheckCircle, AlertCircle, Clock, Send } from "lucide-react";
 import { ProofVerificationModal } from "./ProofVerificationModal";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -66,7 +66,7 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
       <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
         <Checkbox
           checked={task.completed}
-          disabled={true} // Tasks are marked complete only after admin approval and payment
+          disabled={true}
           className="opacity-50"
         />
         
@@ -129,8 +129,6 @@ export const TaskItem = ({ task, goalType, onToggle, onDelete, onTaskCompletionS
         task={task}
         goalType={goalType}
         onProofSubmitted={handleProofSubmitted}
-        title="Submit Task Completion Proof"
-        description="Provide proof that you've completed this task. An admin will review and approve your submission."
       />
     </>
   );
