@@ -7,6 +7,7 @@ type Task = Database['public']['Tables']['tasks']['Row'];
 interface TaskListProps {
   tasks: Task[];
   goalType?: string;
+  goalStatus?: string; // Add goal status prop
   onToggleTask: (taskId: string, completed: boolean) => void;
   onDeleteTask: (taskId: string) => void;
   onTaskCompletionSubmitted?: (taskId: string, proofData: any) => void;
@@ -15,6 +16,7 @@ interface TaskListProps {
 export const TaskList = ({ 
   tasks, 
   goalType, 
+  goalStatus,
   onToggleTask, 
   onDeleteTask, 
   onTaskCompletionSubmitted 
@@ -32,6 +34,7 @@ export const TaskList = ({
           key={task.id}
           task={task}
           goalType={goalType}
+          goalStatus={goalStatus}
           onToggle={onToggleTask}
           onDelete={onDeleteTask}
           onTaskCompletionSubmitted={handleTaskCompletionSubmitted}

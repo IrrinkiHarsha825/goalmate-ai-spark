@@ -1,5 +1,4 @@
 
-import { Badge } from "@/components/ui/badge";
 import { GoalCard } from "./GoalCard";
 import { GoalTasks } from "./GoalTasks";
 import type { Database } from "@/integrations/supabase/types";
@@ -14,43 +13,39 @@ interface GoalsGridProps {
   onTaskUpdate: () => void;
 }
 
-export const GoalsGrid = ({ 
-  goals, 
-  expandedGoal, 
-  onToggleGoalExpansion, 
-  onDeleteGoal, 
-  onTaskUpdate 
+export const GoalsGrid = ({
+  goals,
+  expandedGoal,
+  onToggleGoalExpansion,
+  onDeleteGoal,
+  onTaskUpdate
 }: GoalsGridProps) => {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Your Goals</h2>
-        <Badge variant="outline" className="text-sm">
-          {goals.length} {goals.length === 1 ? 'Goal' : 'Goals'}
-        </Badge>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {goals.map((goal) => (
-          <div key={goal.id} className="space-y-4">
-            <GoalCard
-              goal={goal}
-              onView={(goal) => onToggleGoalExpansion(goal.id)}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {goals.map((goal) => (
+        <div key={goal.id} className="space-y-4">
+          <GoalCard
+            goal={goal}
+            isExpanded={expandedGoal === goal.id}
+            onToggleExpansion={() => onToggleGoalExpansion(goal.id)}
+            onDelete={() => onDeleteGoal(goal.id)}
+          />
+          
+          {expandedGoal === goal.id && (
+            <GoalTasks
+              goalId={goal.id}
+              goalTitle={goal.title}
+              goalDescription={goal.description || undefined}
+              goalTargetAmount={goal.target_amount ? Number(goal.target_amount) : undefined}
+              goalCurrentAmount={goal.current_amount ? Number(goal.current_amount) : 0}
+              goalType="general"
+              goalStatus={goal.status || 'inactive'} // Pass the goal status
+              commitmentAmount={goal.target_amount ? Number(goal.target_amount) : 0}
+              onTaskUpdate={onTaskUpdate}
             />
-
-            {/* Show tasks when goal is expanded */}
-            {expandedGoal === goal.id && (
-              <GoalTasks 
-                goalId={goal.id} 
-                goalTitle={goal.title}
-                goalTargetAmount={goal.target_amount || undefined}
-                goalCurrentAmount={goal.current_amount || 0}
-                onTaskUpdate={onTaskUpdate}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 };

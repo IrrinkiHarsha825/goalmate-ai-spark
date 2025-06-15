@@ -19,6 +19,7 @@ interface GoalTasksProps {
   goalTargetAmount?: number;
   goalCurrentAmount?: number;
   goalType?: string;
+  goalStatus?: string; // Add goal status prop
   commitmentAmount?: number;
   onTaskUpdate?: () => void;
 }
@@ -30,6 +31,7 @@ export const GoalTasks = ({
   goalTargetAmount, 
   goalCurrentAmount = 0,
   goalType = "general",
+  goalStatus = "inactive", // Default to inactive
   commitmentAmount = 0,
   onTaskUpdate 
 }: GoalTasksProps) => {
@@ -242,6 +244,16 @@ export const GoalTasks = ({
   };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
+    // Only allow task completion if goal is active
+    if (goalStatus !== 'active') {
+      toast({
+        title: "Goal Not Active",
+        description: "Wait for admin to approve your payment before completing tasks",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('tasks')
@@ -351,6 +363,7 @@ export const GoalTasks = ({
 
   const totalTasks = tasks.length;
   const rewardPerTask = totalTasks > 0 ? calculateEqualTaskReward(totalTasks, commitmentAmount) : 0;
+  const isGoalActive = goalStatus === 'active';
 
   return (
     <div className="space-y-4">
@@ -368,9 +381,16 @@ export const GoalTasks = ({
               </span>
             </div>
           </CardTitle>
-          {commitmentAmount > 0 && (
-            <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks to earn ${rewardPerTask} per task! Tasks can be marked as complete once the goal is unlocked by admin payment approval.
+          
+          {!isGoalActive && (
+            <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
+              🔒 <strong>Goal Locked:</strong> Tasks are locked until admin approves your payment submission. You can create tasks but cannot complete them yet.
+            </div>
+          )}
+          
+          {isGoalActive && commitmentAmount > 0 && (
+            <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
+              ✅ <strong>Goal Active:</strong> Complete tasks to earn ${rewardPerTask} per task!
             </div>
           )}
         </CardHeader>
@@ -387,6 +407,7 @@ export const GoalTasks = ({
           <TaskList
             tasks={tasks}
             goalType={goalType}
+            goalStatus={goalStatus}
             onToggleTask={toggleTask}
             onDeleteTask={deleteTask}
             onTaskCompletionSubmitted={handleTaskCompletionSubmitted}
