@@ -68,46 +68,58 @@ export const useAdminData = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log('Fetching goal verifications as admin...');
+      console.log('🔍 Starting admin data fetch for user:', user?.email);
+      console.log('👤 User metadata role:', user?.user_metadata?.role);
       
-      // Check if user is admin first
+      // Check admin status
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user?.id)
         .single();
       
-      console.log('Admin profile check:', profile);
+      console.log('📊 Database profile role:', profile?.role);
       
-      if (profile?.role !== 'admin' && user?.user_metadata?.role !== 'admin') {
-        console.log('User is not admin, skipping admin data fetch');
+      const isAdmin = profile?.role === 'admin' || user?.user_metadata?.role === 'admin';
+      console.log('🔐 Is admin:', isAdmin);
+      
+      if (!isAdmin) {
+        console.log('❌ User is not admin, skipping admin data fetch');
         setLoading(false);
         return;
       }
 
-      // Fetch goal verifications with explicit admin bypass
+      // Fetch goal verifications with comprehensive logging
+      console.log('📋 Fetching goal verifications...');
       const { data: verifications, error: verificationsError } = await supabase
         .from('goal_verifications')
         .select('*')
         .order('submitted_at', { ascending: false });
 
+      console.log('🔢 Raw verifications count:', verifications?.length || 0);
+      console.log('❗ Verifications error:', verificationsError);
+
       if (verificationsError) {
-        console.error('Error fetching goal verifications:', verificationsError);
-        // Don't throw here, continue with other data
-      } else {
-        console.log('Raw goal verifications:', verifications);
+        console.error('💥 Error fetching goal verifications:', verificationsError);
+        toast({
+          title: "Warning",
+          description: "Could not load goal verifications",
+          variant: "destructive",
+        });
+      } else if (verifications) {
+        console.log('✅ Goal verifications fetched successfully:', verifications.length, 'items');
         
-        // Get user emails and goal titles separately
+        // Get user emails and goal titles
         const formattedVerifications = [];
-        for (const verification of verifications || []) {
-          // Get user email
+        for (const verification of verifications) {
+          console.log('🔄 Processing verification:', verification.id);
+          
           const { data: userProfile } = await supabase
             .from('profiles')
             .select('email')
             .eq('id', verification.user_id)
             .single();
 
-          // Get goal title
           const { data: goal } = await supabase
             .from('goals')
             .select('title')
@@ -121,47 +133,65 @@ export const useAdminData = () => {
           });
         }
         
-        console.log('Formatted goal verifications:', formattedVerifications);
+        console.log('📝 Formatted goal verifications:', formattedVerifications.length, 'items');
         setGoalVerifications(formattedVerifications);
       }
 
       // Fetch payment submissions
-      console.log('Fetching payment submissions...');
+      console.log('💳 Fetching payment submissions...');
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
         .select('*')
         .order('submitted_at', { ascending: false });
 
+      console.log('🔢 Raw payments count:', payments?.length || 0);
+      console.log('❗ Payments error:', paymentsError);
+
       if (paymentsError) {
-        console.error('Error fetching payments:', paymentsError);
+        console.error('💥 Error fetching payment submissions:', paymentsError);
+        toast({
+          title: "Warning",
+          description: "Could not load payment submissions",
+          variant: "destructive",
+        });
       } else {
-        console.log('Payment submissions fetched:', payments);
+        console.log('✅ Payment submissions fetched successfully:', payments?.length || 0, 'items');
         setPaymentSubmissions(payments || []);
       }
 
       // Fetch withdrawal requests
-      console.log('Fetching withdrawal requests...');
+      console.log('💰 Fetching withdrawal requests...');
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
         .select('*')
         .order('requested_at', { ascending: false });
 
+      console.log('🔢 Raw withdrawals count:', withdrawals?.length || 0);
+      console.log('❗ Withdrawals error:', withdrawalsError);
+
       if (withdrawalsError) {
-        console.error('Error fetching withdrawals:', withdrawalsError);
+        console.error('💥 Error fetching withdrawal requests:', withdrawalsError);
+        toast({
+          title: "Warning",
+          description: "Could not load withdrawal requests",
+          variant: "destructive",
+        });
       } else {
-        console.log('Withdrawal requests fetched:', withdrawals);
+        console.log('✅ Withdrawal requests fetched successfully:', withdrawals?.length || 0, 'items');
         setWithdrawalRequests(withdrawals || []);
       }
 
       // Task completion submissions - placeholder for now
-      console.log('Task completion submissions table not yet available');
+      console.log('📋 Task completion submissions table not yet available');
       setTaskCompletionSubmissions([]);
 
+      console.log('🎉 Admin data fetch completed successfully');
+
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      console.error('💥 Critical error fetching admin data:', error);
       toast({
         title: "Error",
-        description: "Failed to load admin data",
+        description: "Failed to load admin data. Please check the console for details.",
         variant: "destructive",
       });
     } finally {
@@ -171,10 +201,17 @@ export const useAdminData = () => {
 
   useEffect(() => {
     if (user) {
+      console.log('🚀 User detected, starting data fetch...');
       fetchData();
       
-      const interval = setInterval(fetchData, 30000);
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing admin data...');
+        fetchData();
+      }, 30000);
+      
       return () => clearInterval(interval);
+    } else {
+      console.log('👤 No user found, skipping data fetch');
     }
   }, [user]);
 
