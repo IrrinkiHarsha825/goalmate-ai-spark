@@ -118,19 +118,6 @@ export const PaymentSubmissionModal = ({
 
       console.log('Payment verification submitted successfully:', data);
 
-      // Update goal status to pending_verification
-      const { error: goalError } = await supabase
-        .from('goals')
-        .update({ 
-          verification_status: 'pending_verification',
-          status: 'inactive'
-        })
-        .eq('id', goalId);
-
-      if (goalError) {
-        console.error('Error updating goal status:', goalError);
-      }
-
       toast({
         title: "Payment Submitted Successfully! ✅",
         description: "Your payment is now pending admin verification. Your goal will be activated once approved.",

@@ -68,15 +68,11 @@ export const useAdminData = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch goal verifications with proper joins
+      // Fetch goal verifications - we'll get user email and goal title separately to avoid join issues
       console.log('Fetching goal verifications...');
       const { data: verifications, error: verificationsError } = await supabase
         .from('goal_verifications')
-        .select(`
-          *,
-          goals!inner(title),
-          profiles!goal_verifications_user_id_fkey(email)
-        `)
+        .select('*')
         .order('submitted_at', { ascending: false });
 
       if (verificationsError) {
@@ -84,11 +80,29 @@ export const useAdminData = () => {
         throw verificationsError;
       }
 
-      const formattedVerifications = (verifications || []).map(verification => ({
-        ...verification,
-        user_email: verification.profiles?.email,
-        goal_title: verification.goals?.title
-      }));
+      // Get user emails and goal titles separately
+      const formattedVerifications = [];
+      for (const verification of verifications || []) {
+        // Get user email
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', verification.user_id)
+          .single();
+
+        // Get goal title
+        const { data: goal } = await supabase
+          .from('goals')
+          .select('title')
+          .eq('id', verification.goal_id)
+          .single();
+
+        formattedVerifications.push({
+          ...verification,
+          user_email: profile?.email,
+          goal_title: goal?.title
+        });
+      }
       
       console.log('Goal verifications fetched:', formattedVerifications);
       setGoalVerifications(formattedVerifications);
