@@ -75,17 +75,37 @@ export const GoalTasks = ({
 
   const fetchTasks = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
         .eq('goal_id', goalId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setTasks(data || []);
+      if (tasksError) throw tasksError;
+
+      // Fetch task completion submissions to check status
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from('task_completion_submissions')
+        .select('task_id, status, admin_notes')
+        .eq('goal_id', goalId);
+
+      if (submissionsError) throw submissionsError;
+
+      // Merge task data with completion status
+      const tasksWithStatus = (tasksData || []).map(task => {
+        const submission = submissionsData?.find(s => s.task_id === task.id);
+        return {
+          ...task,
+          completion_status: submission?.status,
+          admin_feedback: submission?.admin_notes,
+          has_pending_submission: submission?.status === 'pending'
+        };
+      });
+
+      setTasks(tasksWithStatus);
       
-      if (data && data.length > 0 && commitmentAmount) {
-        await recalculateAllTaskRewards(data);
+      if (tasksWithStatus && tasksWithStatus.length > 0 && commitmentAmount) {
+        await recalculateAllTaskRewards(tasksWithStatus);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -144,6 +164,48 @@ export const GoalTasks = ({
       toast({
         title: "Error",
         description: "Failed to submit proof. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTaskCompletionSubmitted = async (taskId: string, proofData: any) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('task_completion_submissions')
+        .insert({
+          task_id: taskId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          goal_id: goalId,
+          proof_text: proofData.description,
+          proof_image_url: proofData.imageUrl,
+          reward_amount: task.reward_amount || 0
+        });
+
+      if (error) throw error;
+
+      // Update local state to show pending status
+      setTasks(prevTasks => 
+        prevTasks.map(t => 
+          t.id === taskId 
+            ? { ...t, completion_status: 'pending' as const, has_pending_submission: true }
+            : t
+        )
+      );
+
+      toast({
+        title: "Task Completion Submitted! ⏳",
+        description: `Your proof has been submitted for admin review. Reward: $${task.reward_amount}`,
+      });
+
+    } catch (error) {
+      console.error('Error submitting task completion:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit task completion. Please try again.",
         variant: "destructive",
       });
     }
@@ -343,7 +405,7 @@ export const GoalTasks = ({
           </CardTitle>
           {commitmentAmount > 0 && (
             <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              💡 Complete tasks with proof submission to earn rewards! Admin will verify your proof and award ${commitmentAmount} total divided equally between all {totalTasks || 'your'} tasks.
+              💡 Complete tasks and submit proof to earn ${rewardPerTask} per task! Admin will verify each submission and award payment upon approval.
             </div>
           )}
         </CardHeader>
@@ -362,7 +424,7 @@ export const GoalTasks = ({
             goalType={goalType}
             onToggleTask={toggleTask}
             onDeleteTask={deleteTask}
-            onProofSubmitted={handleProofSubmitted}
+            onTaskCompletionSubmitted={handleTaskCompletionSubmitted}
           />
 
           <TaskProgressDisplay 

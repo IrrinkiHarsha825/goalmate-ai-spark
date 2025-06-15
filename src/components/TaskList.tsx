@@ -9,7 +9,7 @@ interface TaskListProps {
   goalType?: string;
   onToggleTask: (taskId: string, completed: boolean) => void;
   onDeleteTask: (taskId: string) => void;
-  onProofSubmitted?: (taskId: string, proofData: any) => void;
+  onTaskCompletionSubmitted?: (taskId: string, proofData: any) => void;
 }
 
 export const TaskList = ({ 
@@ -17,12 +17,12 @@ export const TaskList = ({
   goalType, 
   onToggleTask, 
   onDeleteTask, 
-  onProofSubmitted 
+  onTaskCompletionSubmitted 
 }: TaskListProps) => {
   if (tasks.length === 0) return null;
 
-  const handleProofSubmitted = (taskId: string, proofData: any) => {
-    onProofSubmitted?.(taskId, proofData);
+  const handleTaskCompletionSubmitted = (taskId: string, proofData: any) => {
+    onTaskCompletionSubmitted?.(taskId, proofData);
   };
 
   return (
@@ -34,7 +34,7 @@ export const TaskList = ({
           goalType={goalType}
           onToggle={onToggleTask}
           onDelete={onDeleteTask}
-          onProofSubmitted={handleProofSubmitted}
+          onTaskCompletionSubmitted={handleTaskCompletionSubmitted}
         />
       ))}
     </div>

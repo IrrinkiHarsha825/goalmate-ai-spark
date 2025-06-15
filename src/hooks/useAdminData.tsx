@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,9 +24,26 @@ interface WithdrawalRequest {
   admin_notes?: string;
 }
 
+interface TaskCompletionSubmission {
+  id: string;
+  task_id: string;
+  user_id: string;
+  goal_id: string;
+  proof_text?: string;
+  proof_image_url?: string;
+  status: string;
+  admin_notes?: string;
+  submitted_at: string;
+  reward_amount: number;
+  task_title?: string;
+  user_email?: string;
+  goal_title?: string;
+}
+
 export const useAdminData = () => {
   const [paymentSubmissions, setPaymentSubmissions] = useState<PaymentSubmission[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  const [taskCompletionSubmissions, setTaskCompletionSubmissions] = useState<TaskCompletionSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -62,6 +78,33 @@ export const useAdminData = () => {
       
       console.log('Withdrawal requests fetched:', withdrawals);
       setWithdrawalRequests(withdrawals || []);
+
+      console.log('Fetching task completion submissions...');
+      const { data: taskCompletions, error: taskCompletionsError } = await supabase
+        .from('task_completion_submissions')
+        .select(`
+          *,
+          tasks(title),
+          goals(title),
+          profiles(email)
+        `)
+        .order('submitted_at', { ascending: false });
+
+      if (taskCompletionsError) {
+        console.error('Error fetching task completions:', taskCompletionsError);
+        throw taskCompletionsError;
+      }
+      
+      // Transform the data to flatten joined fields
+      const formattedTaskCompletions = (taskCompletions || []).map(tc => ({
+        ...tc,
+        task_title: tc.tasks?.title,
+        user_email: tc.profiles?.email,
+        goal_title: tc.goals?.title
+      }));
+      
+      console.log('Task completion submissions fetched:', formattedTaskCompletions);
+      setTaskCompletionSubmissions(formattedTaskCompletions);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -106,12 +149,24 @@ export const useAdminData = () => {
     );
   };
 
+  const updateTaskCompletionSubmissionStatus = (id: string, status: string, notes?: string) => {
+    setTaskCompletionSubmissions(prev => 
+      prev.map(submission => 
+        submission.id === id 
+          ? { ...submission, status, admin_notes: notes }
+          : submission
+      )
+    );
+  };
+
   return {
     paymentSubmissions,
     withdrawalRequests,
+    taskCompletionSubmissions,
     loading,
     fetchData,
     updatePaymentSubmissionStatus,
-    updateWithdrawalRequestStatus
+    updateWithdrawalRequestStatus,
+    updateTaskCompletionSubmissionStatus
   };
 };
