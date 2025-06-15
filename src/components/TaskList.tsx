@@ -7,7 +7,7 @@ type Task = Database['public']['Tables']['tasks']['Row'];
 interface TaskListProps {
   tasks: Task[];
   goalType?: string;
-  goalStatus?: string; // Add goal status prop
+  goalStatus?: string;
   onToggleTask: (taskId: string, completed: boolean) => void;
   onDeleteTask: (taskId: string) => void;
   onTaskCompletionSubmitted?: (taskId: string, proofData: any) => void;

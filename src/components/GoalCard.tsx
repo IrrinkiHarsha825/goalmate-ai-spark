@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Clock, DollarSign, Target, AlertCircle, CheckCircle, XCircle, Lock } from "lucide-react";
+import { Calendar, DollarSign, Target, CheckCircle, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -16,18 +16,8 @@ interface GoalCardProps {
 }
 
 export const GoalCard = ({ goal, onView }: GoalCardProps) => {
-  const getStatusBadge = (status: string, verificationStatus?: string) => {
-    // Use verification_status if available, otherwise fall back to status
-    const currentStatus = verificationStatus || status;
-    
-    switch (currentStatus) {
-      case 'unverified':
-      case 'pending_verification':
-        return <Badge variant="secondary" className="bg-amber-100 text-amber-800">
-          <Clock className="w-3 h-3 mr-1" />
-          Payment Pending
-        </Badge>;
-      case 'verified':
+  const getStatusBadge = (status: string) => {
+    switch (status) {
       case 'active':
         return <Badge variant="default" className="bg-green-100 text-green-800">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -38,47 +28,23 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
           <Target className="w-3 h-3 mr-1" />
           Completed
         </Badge>;
-      case 'rejected':
       case 'failed':
         return <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
-          {currentStatus === 'rejected' ? 'Payment Rejected' : 'Failed'}
+          Failed
         </Badge>;
       default:
-        return <Badge variant="outline">{currentStatus}</Badge>;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getStatusMessage = (status: string, verificationStatus?: string) => {
-    const currentStatus = verificationStatus || status;
-    
-    switch (currentStatus) {
-      case 'unverified':
-        return {
-          title: "💳 Payment Required",
-          message: "Submit your payment to activate this goal and start earning rewards.",
-          icon: <AlertCircle className="w-5 h-5 text-blue-500" />
-        };
-      case 'pending_verification':
-        return {
-          title: "⏳ Awaiting Payment Verification",
-          message: "Your payment submission is pending admin verification. Please wait for approval.",
-          icon: <Lock className="w-5 h-5 text-amber-500" />
-        };
-      case 'verified':
-      case 'active':
-        return null;
+  const getStatusMessage = (status: string) => {
+    switch (status) {
       case 'completed':
         return {
           title: "🎉 Goal Completed!",
           message: "Congratulations! You've successfully completed this goal.",
           icon: <CheckCircle className="w-5 h-5 text-green-500" />
-        };
-      case 'rejected':
-        return {
-          title: "❌ Payment Rejected",
-          message: "Your payment was rejected by admin. Please contact support or resubmit with correct details.",
-          icon: <XCircle className="w-5 h-5 text-red-500" />
         };
       case 'failed':
         return {
@@ -91,19 +57,15 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
     }
   };
 
-  const statusInfo = getStatusMessage(goal.status || 'active', goal.verification_status);
-  const isLocked = ['unverified', 'pending_verification', 'rejected'].includes(goal.verification_status || goal.status || '');
-  const isActive = ['verified', 'active'].includes(goal.verification_status || goal.status || '');
+  const statusInfo = getStatusMessage(goal.status || 'active');
   const isCompleted = goal.status === 'completed';
-  const isFailed = goal.status === 'failed' || goal.verification_status === 'rejected';
+  const isFailed = goal.status === 'failed';
 
   // Calculate progress (placeholder for now)
-  const progress = isCompleted ? 100 : 
-                  isActive ? 45 : 0;
+  const progress = isCompleted ? 100 : 45;
 
   return (
     <Card className={`transition-all duration-200 hover:shadow-lg ${
-      isLocked ? 'opacity-75 border-amber-200' : 
       isCompleted ? 'border-green-200 bg-green-50' :
       isFailed ? 'border-red-200 bg-red-50' : ''
     }`}>
@@ -111,7 +73,6 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
             <CardTitle className="text-lg leading-tight flex items-center gap-2">
-              {isLocked && <Lock className="w-4 h-4 text-amber-500" />}
               {goal.title}
             </CardTitle>
             <CardDescription className="text-sm line-clamp-2">
@@ -119,7 +80,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
             </CardDescription>
           </div>
           <div className="ml-3">
-            {getStatusBadge(goal.status || 'active', goal.verification_status)}
+            {getStatusBadge(goal.status || 'active')}
           </div>
         </div>
       </CardHeader>
@@ -128,7 +89,6 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
         {/* Status Message */}
         {statusInfo && (
           <div className={`border rounded-lg p-3 ${
-            isLocked ? 'bg-amber-50 border-amber-200' :
             isCompleted ? 'bg-green-50 border-green-200' :
             isFailed ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
           }`}>
@@ -136,14 +96,12 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
               {statusInfo.icon}
               <div className="flex-1">
                 <h4 className={`font-medium text-sm ${
-                  isLocked ? 'text-amber-900' :
                   isCompleted ? 'text-green-900' :
                   isFailed ? 'text-red-900' : 'text-blue-900'
                 }`}>
                   {statusInfo.title}
                 </h4>
                 <p className={`text-xs mt-1 ${
-                  isLocked ? 'text-amber-700' :
                   isCompleted ? 'text-green-700' :
                   isFailed ? 'text-red-700' : 'text-blue-700'
                 }`}>
@@ -154,8 +112,8 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
           </div>
         )}
 
-        {/* Progress Bar (only for active goals) */}
-        {isActive && (
+        {/* Progress Bar (for active goals) */}
+        {!isCompleted && !isFailed && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Progress</span>
@@ -186,16 +144,7 @@ export const GoalCard = ({ goal, onView }: GoalCardProps) => {
 
         {/* Action Button */}
         <div className="pt-2">
-          {isLocked ? (
-            <Button 
-              variant="outline" 
-              className="w-full border-amber-300 text-amber-700 hover:bg-amber-50" 
-              disabled
-            >
-              <Lock className="w-4 h-4 mr-2" />
-              {goal.verification_status === 'pending_verification' ? 'Awaiting Verification' : 'Payment Required'}
-            </Button>
-          ) : isCompleted ? (
+          {isCompleted ? (
             <Button 
               onClick={() => onView?.(goal)} 
               className="w-full bg-green-600 hover:bg-green-700"

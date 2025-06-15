@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
@@ -19,7 +20,7 @@ interface GoalTasksProps {
   goalTargetAmount?: number;
   goalCurrentAmount?: number;
   goalType?: string;
-  goalStatus?: string; // Add goal status prop
+  goalStatus?: string;
   commitmentAmount?: number;
   onTaskUpdate?: () => void;
 }
@@ -31,14 +32,13 @@ export const GoalTasks = ({
   goalTargetAmount, 
   goalCurrentAmount = 0,
   goalType = "general",
-  goalStatus = "inactive", // Default to inactive
+  goalStatus = "active",
   commitmentAmount = 0,
   onTaskUpdate 
 }: GoalTasksProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [goalVerificationStatus, setGoalVerificationStatus] = useState<string>('unverified');
   const { toast } = useToast();
 
   // Calculate equal reward per task by dividing total commitment by number of tasks
@@ -73,22 +73,6 @@ export const GoalTasks = ({
     }
   };
 
-  const fetchGoalVerificationStatus = async () => {
-    try {
-      const { data: goal, error } = await supabase
-        .from('goals')
-        .select('verification_status, status')
-        .eq('id', goalId)
-        .single();
-
-      if (error) throw error;
-
-      setGoalVerificationStatus(goal.verification_status || 'unverified');
-    } catch (error) {
-      console.error('Error fetching goal verification status:', error);
-    }
-  };
-
   const fetchTasks = async () => {
     try {
       const { data: tasksData, error: tasksError } = await supabase
@@ -111,7 +95,6 @@ export const GoalTasks = ({
 
   useEffect(() => {
     fetchTasks();
-    fetchGoalVerificationStatus();
   }, [goalId, commitmentAmount]);
 
   const checkAndUpdateMilestones = async (newCurrentAmount: number) => {
@@ -260,16 +243,6 @@ export const GoalTasks = ({
   };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
-    // Only allow task completion if goal is verified/active
-    if (goalVerificationStatus !== 'verified' && goalStatus !== 'active') {
-      toast({
-        title: "Goal Not Active",
-        description: "Wait for admin to verify your payment before completing tasks",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const { error } = await supabase
         .from('tasks')
@@ -379,7 +352,6 @@ export const GoalTasks = ({
 
   const totalTasks = tasks.length;
   const rewardPerTask = totalTasks > 0 ? calculateEqualTaskReward(totalTasks, commitmentAmount) : 0;
-  const isGoalActive = goalVerificationStatus === 'verified' || goalStatus === 'active';
 
   return (
     <div className="space-y-4">
@@ -397,18 +369,6 @@ export const GoalTasks = ({
               </span>
             </div>
           </CardTitle>
-          
-          {!isGoalActive && (
-            <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-              🔒 <strong>Goal Locked:</strong> Tasks are locked until admin verifies your payment submission. You can create tasks but cannot complete them yet.
-            </div>
-          )}
-          
-          {isGoalActive && commitmentAmount > 0 && (
-            <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-              ✅ <strong>Goal Active:</strong> Complete tasks to earn ${rewardPerTask} per task!
-            </div>
-          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <TaskCreationControls
@@ -423,7 +383,7 @@ export const GoalTasks = ({
           <TaskList
             tasks={tasks}
             goalType={goalType}
-            goalStatus={isGoalActive ? 'active' : 'inactive'}
+            goalStatus="active"
             onToggleTask={toggleTask}
             onDeleteTask={deleteTask}
             onTaskCompletionSubmitted={handleTaskCompletionSubmitted}

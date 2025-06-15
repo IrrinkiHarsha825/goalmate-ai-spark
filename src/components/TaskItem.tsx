@@ -12,7 +12,7 @@ type Task = Database['public']['Tables']['tasks']['Row'];
 interface TaskItemProps {
   task: Task;
   goalType?: string;
-  goalStatus?: string; // Add goal status to determine if tasks are unlocked
+  goalStatus?: string;
   onToggle: (taskId: string, completed: boolean) => void;
   onDelete: (taskId: string) => void;
   onTaskCompletionSubmitted: (taskId: string, proofData: any) => void;
@@ -20,9 +20,6 @@ interface TaskItemProps {
 
 export const TaskItem = ({ task, goalType, goalStatus, onToggle, onDelete, onTaskCompletionSubmitted }: TaskItemProps) => {
   const [showProofModal, setShowProofModal] = useState(false);
-
-  // Tasks are only enabled if the goal is active (payment approved)
-  const isTaskEnabled = goalStatus === 'active';
 
   const getDifficultyColor = (difficulty: string | null) => {
     switch (difficulty) {
@@ -38,9 +35,6 @@ export const TaskItem = ({ task, goalType, goalStatus, onToggle, onDelete, onTas
   };
 
   const handleSubmitCompletion = () => {
-    if (!isTaskEnabled) {
-      return; // Don't allow submission if goal is not active
-    }
     setShowProofModal(true);
   };
 
@@ -49,45 +43,26 @@ export const TaskItem = ({ task, goalType, goalStatus, onToggle, onDelete, onTas
   };
 
   const handleToggle = () => {
-    if (!isTaskEnabled) {
-      return; // Don't allow toggle if goal is not active
-    }
     onToggle(task.id, !task.completed);
   };
 
   return (
     <>
-      <div className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
-        isTaskEnabled 
-          ? 'hover:bg-gray-50' 
-          : 'bg-gray-100 opacity-60'
-      }`}>
+      <div className="flex items-center gap-3 p-3 border rounded-lg transition-colors hover:bg-gray-50">
         <Checkbox
           checked={task.completed}
           onCheckedChange={handleToggle}
-          disabled={!isTaskEnabled}
         />
         
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`font-medium ${
-              task.completed 
-                ? 'line-through text-gray-500' 
-                : isTaskEnabled 
-                  ? '' 
-                  : 'text-gray-400'
-            }`}>
+            <span className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>
               {task.title}
             </span>
             {task.completed && (
               <Badge variant="outline" className="text-xs text-green-600">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Completed
-              </Badge>
-            )}
-            {!isTaskEnabled && (
-              <Badge variant="outline" className="text-xs text-orange-600 bg-orange-50">
-                🔒 Locked
               </Badge>
             )}
           </div>
@@ -98,14 +73,12 @@ export const TaskItem = ({ task, goalType, goalStatus, onToggle, onDelete, onTas
             {task.difficulty}
           </span>
           
-          <span className={`font-medium text-sm flex items-center ${
-            isTaskEnabled ? 'text-green-600' : 'text-gray-400'
-          }`}>
+          <span className="font-medium text-sm flex items-center text-green-600">
             <DollarSign className="h-3 w-3 mr-1" />
             {task.reward_amount}
           </span>
 
-          {!task.completed && isTaskEnabled && (
+          {!task.completed && (
             <Button
               variant="ghost"
               size="sm"
@@ -121,22 +94,20 @@ export const TaskItem = ({ task, goalType, goalStatus, onToggle, onDelete, onTas
             size="sm"
             onClick={() => onDelete(task.id)}
             className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            disabled={task.completed || !isTaskEnabled}
+            disabled={task.completed}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {isTaskEnabled && (
-        <ProofVerificationModal
-          open={showProofModal}
-          onOpenChange={setShowProofModal}
-          task={task}
-          goalType={goalType}
-          onProofSubmitted={handleProofSubmitted}
-        />
-      )}
+      <ProofVerificationModal
+        open={showProofModal}
+        onOpenChange={setShowProofModal}
+        task={task}
+        goalType={goalType}
+        onProofSubmitted={handleProofSubmitted}
+      />
     </>
   );
 };

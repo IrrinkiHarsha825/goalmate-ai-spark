@@ -37,7 +37,7 @@ export const GoalsGrid = ({
               goalTargetAmount={goal.target_amount ? Number(goal.target_amount) : undefined}
               goalCurrentAmount={goal.current_amount ? Number(goal.current_amount) : 0}
               goalType="general"
-              goalStatus={goal.status || 'inactive'}
+              goalStatus="active"
               commitmentAmount={goal.target_amount ? Number(goal.target_amount) : 0}
               onTaskUpdate={onTaskUpdate}
             />
