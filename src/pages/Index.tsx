@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { StatsSection } from "@/components/StatsSection";
 import { TestimonialSection } from "@/components/TestimonialSection";
 import { GoalCreationModal } from "@/components/GoalCreationModal";
 import { GoalsDisplay } from "@/components/GoalsDisplay";
+import { WalletDisplay } from "@/components/WalletDisplay";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -146,7 +146,10 @@ const Index = () => {
       {user && (
         <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white/30 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto">
-            <GoalsDisplay refreshTrigger={goalRefreshTrigger} />
+            <div className="space-y-6">
+              <WalletDisplay />
+              <GoalsDisplay refreshTrigger={goalRefreshTrigger} />
+            </div>
           </div>
         </section>
       )}
