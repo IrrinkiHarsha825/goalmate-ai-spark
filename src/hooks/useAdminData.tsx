@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,14 +68,14 @@ export const useAdminData = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch goal verifications (new payment verification system)
+      // Fetch goal verifications with proper joins
       console.log('Fetching goal verifications...');
       const { data: verifications, error: verificationsError } = await supabase
         .from('goal_verifications')
         .select(`
           *,
-          goals(title),
-          profiles(email)
+          goals!inner(title),
+          profiles!goal_verifications_user_id_fkey(email)
         `)
         .order('submitted_at', { ascending: false });
 
