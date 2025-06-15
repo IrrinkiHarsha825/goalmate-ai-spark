@@ -23,10 +23,10 @@ interface PaymentSubmission {
   profiles?: {
     full_name: string;
     email: string;
-  };
+  } | null;
   goals?: {
     title: string;
-  };
+  } | null;
 }
 
 interface WithdrawalRequest {
@@ -40,7 +40,7 @@ interface WithdrawalRequest {
   profiles?: {
     full_name: string;
     email: string;
-  };
+  } | null;
 }
 
 const Admin = () => {
@@ -85,31 +85,52 @@ const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch payment submissions
+      // Fetch payment submissions with user details
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
         .select(`
           *,
-          profiles!payment_submissions_user_id_fkey(full_name, email),
-          goals(title)
+          profiles!inner(full_name, email),
+          goals!inner(title)
         `)
         .order('submitted_at', { ascending: false });
 
-      if (paymentsError) throw paymentsError;
+      if (paymentsError) {
+        console.error('Payments error:', paymentsError);
+        // Fallback to basic fetch without joins
+        const { data: basicPayments, error: basicError } = await supabase
+          .from('payment_submissions')
+          .select('*')
+          .order('submitted_at', { ascending: false });
+        
+        if (basicError) throw basicError;
+        setPaymentSubmissions(basicPayments || []);
+      } else {
+        setPaymentSubmissions(payments || []);
+      }
 
-      // Fetch withdrawal requests
+      // Fetch withdrawal requests with user details
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
         .select(`
           *,
-          profiles!withdrawal_requests_user_id_fkey(full_name, email)
+          profiles!inner(full_name, email)
         `)
         .order('requested_at', { ascending: false });
 
-      if (withdrawalsError) throw withdrawalsError;
-
-      setPaymentSubmissions(payments || []);
-      setWithdrawalRequests(withdrawals || []);
+      if (withdrawalsError) {
+        console.error('Withdrawals error:', withdrawalsError);
+        // Fallback to basic fetch without joins
+        const { data: basicWithdrawals, error: basicError } = await supabase
+          .from('withdrawal_requests')
+          .select('*')
+          .order('requested_at', { ascending: false });
+        
+        if (basicError) throw basicError;
+        setWithdrawalRequests(basicWithdrawals || []);
+      } else {
+        setWithdrawalRequests(withdrawals || []);
+      }
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -193,27 +214,19 @@ const Admin = () => {
 
       // If approved, deduct from user's wallet balance
       if (action === 'approved') {
-        const { error: walletError } = await supabase.rpc('update_wallet_balance', {
-          user_id: request.user_id,
-          amount_to_deduct: request.amount
-        });
+        const { data: wallet } = await supabase
+          .from('wallets')
+          .select('balance')
+          .eq('user_id', request.user_id)
+          .single();
 
-        if (walletError) {
-          // Fallback to manual update
-          const { data: wallet } = await supabase
+        if (wallet) {
+          const { error: updateError } = await supabase
             .from('wallets')
-            .select('balance')
-            .eq('user_id', request.user_id)
-            .single();
+            .update({ balance: wallet.balance - request.amount })
+            .eq('user_id', request.user_id);
 
-          if (wallet) {
-            const { error: updateError } = await supabase
-              .from('wallets')
-              .update({ balance: wallet.balance - request.amount })
-              .eq('user_id', request.user_id);
-
-            if (updateError) throw updateError;
-          }
+          if (updateError) throw updateError;
         }
       }
 
@@ -356,9 +369,9 @@ const PaymentSubmissionCard = ({
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg">{submission.goals?.title}</CardTitle>
+            <CardTitle className="text-lg">{submission.goals?.title || 'Unknown Goal'}</CardTitle>
             <CardDescription>
-              User: {submission.profiles?.full_name} ({submission.profiles?.email})
+              User: {submission.profiles?.full_name || 'Unknown'} ({submission.profiles?.email || 'No email'})
             </CardDescription>
           </div>
           <Badge variant={submission.status === 'pending' ? 'secondary' : 
@@ -448,7 +461,7 @@ const WithdrawalRequestCard = ({
           <div>
             <CardTitle className="text-lg">Withdrawal Request</CardTitle>
             <CardDescription>
-              User: {request.profiles?.full_name} ({request.profiles?.email})
+              User: {request.profiles?.full_name || 'Unknown'} ({request.profiles?.email || 'No email'})
             </CardDescription>
           </div>
           <Badge variant={request.status === 'pending' ? 'secondary' : 
