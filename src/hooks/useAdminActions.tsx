@@ -13,6 +13,116 @@ export const useAdminActions = (
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const handleGoalVerificationAction = async (verificationId: string, action: 'verified' | 'rejected', notes?: string) => {
+    setProcessingId(verificationId);
+
+    try {
+      console.log(`Processing goal verification ${verificationId} with action: ${action}`);
+      
+      // Get the verification to access goal_id and other details
+      const { data: verification, error: fetchError } = await supabase
+        .from('goal_verifications')
+        .select('*')
+        .eq('id', verificationId)
+        .single();
+
+      if (fetchError || !verification) {
+        console.error('Verification not found:', verificationId);
+        throw fetchError || new Error('Verification not found');
+      }
+
+      console.log('Verification data:', verification);
+
+      // Update verification status
+      const { error: verificationError } = await supabase
+        .from('goal_verifications')
+        .update({
+          verification_status: action,
+          admin_notes: notes,
+          verified_at: new Date().toISOString(),
+          verified_by: user?.id,
+        })
+        .eq('id', verificationId);
+
+      if (verificationError) {
+        console.error('Error updating verification:', verificationError);
+        throw verificationError;
+      }
+
+      if (action === 'verified') {
+        console.log('Payment verified, updating wallet...');
+        
+        // Get current wallet or create if doesn't exist
+        const { data: existingWallet, error: walletFetchError } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', verification.user_id)
+          .single();
+
+        if (walletFetchError && walletFetchError.code !== 'PGRST116') {
+          console.error('Error fetching wallet:', walletFetchError);
+          throw walletFetchError;
+        }
+
+        if (existingWallet) {
+          console.log('Updating existing wallet...', existingWallet);
+          const newBalance = Number(existingWallet.balance) + Number(verification.payment_amount);
+          const newTotalInvested = Number(existingWallet.total_invested) + Number(verification.payment_amount);
+          
+          const { error: walletError } = await supabase
+            .from('wallets')
+            .update({
+              balance: newBalance,
+              total_invested: newTotalInvested,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', verification.user_id);
+
+          if (walletError) {
+            console.error('Error updating wallet:', walletError);
+            throw walletError;
+          }
+          
+          console.log(`Wallet updated: balance ${newBalance}, total_invested ${newTotalInvested}`);
+        } else {
+          console.log('Creating new wallet...');
+          const { error: walletError } = await supabase
+            .from('wallets')
+            .insert({
+              user_id: verification.user_id,
+              balance: Number(verification.payment_amount),
+              total_invested: Number(verification.payment_amount),
+            });
+
+          if (walletError) {
+            console.error('Error creating wallet:', walletError);
+            throw walletError;
+          }
+          
+          console.log(`New wallet created with balance: ${verification.payment_amount}`);
+        }
+      }
+
+      toast({
+        title: action === 'verified' ? "Payment Verified ✅" : "Payment Rejected ❌",
+        description: `Payment verification has been ${action}${action === 'verified' ? ' and wallet updated' : ''}`,
+      });
+
+      console.log('Action completed, refreshing data...');
+      await onDataUpdate();
+    } catch (error) {
+      console.error('Error processing verification:', error);
+      
+      toast({
+        title: "Error",
+        description: "Failed to process verification",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handlePaymentAction = async (submissionId: string, action: 'approved' | 'rejected', notes?: string) => {
     setProcessingId(submissionId);
     
@@ -244,6 +354,7 @@ export const useAdminActions = (
   return {
     processingId,
     handlePaymentAction,
-    handleWithdrawalAction
+    handleWithdrawalAction,
+    handleGoalVerificationAction
   };
 };
