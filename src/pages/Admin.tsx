@@ -44,6 +44,22 @@ const Admin = () => {
       setRoleLoading(true);
       if (user) {
         try {
+          console.log('Checking user role for:', user.email);
+          console.log('User metadata:', user.user_metadata);
+          
+          // First check user metadata (from sign-up)
+          const metadataRole = user.user_metadata?.role;
+          console.log('Role from metadata:', metadataRole);
+          
+          if (metadataRole === 'admin') {
+            console.log('Admin role found in metadata');
+            setUserRole('admin');
+            setRoleLoading(false);
+            return;
+          }
+
+          // Fallback to database check
+          console.log('Checking role in database...');
           const { data, error } = await supabase
             .from('profiles')
             .select('role')
@@ -51,9 +67,10 @@ const Admin = () => {
             .single();
 
           if (error) {
-            console.error("Error fetching user role:", error);
+            console.error("Error fetching user role from database:", error);
             setUserRole(null);
           } else {
+            console.log('Role from database:', data?.role);
             setUserRole(data?.role || null);
           }
         } catch (error) {
@@ -63,6 +80,7 @@ const Admin = () => {
           setRoleLoading(false);
         }
       } else {
+        console.log('No user found');
         setUserRole(null);
         setRoleLoading(false);
       }
@@ -75,7 +93,10 @@ const Admin = () => {
     return <AdminLoadingScreen />;
   }
 
+  console.log('Final role check - userRole:', userRole, 'user exists:', !!user);
+
   if (!user || userRole !== 'admin') {
+    console.log('Redirecting to auth - user:', !!user, 'role:', userRole);
     return <Navigate to="/auth" replace />;
   }
 
@@ -86,7 +107,10 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <AdminNavigation onSignOut={() => supabase.auth.signOut()} />
+      <AdminNavigation 
+        userEmail={user.email}
+        onSignOut={() => supabase.auth.signOut()} 
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
