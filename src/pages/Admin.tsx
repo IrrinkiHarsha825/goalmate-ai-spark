@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Target, LogOut, Check, X, Clock, DollarSign, Users, FileText } from "lucide-react";
+import { Target, LogOut, Check, X, DollarSign, Users, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -20,13 +20,6 @@ interface PaymentSubmission {
   status: string;
   submitted_at: string;
   admin_notes?: string;
-  profiles?: {
-    full_name: string;
-    email: string;
-  } | null;
-  goals?: {
-    title: string;
-  } | null;
 }
 
 interface WithdrawalRequest {
@@ -37,10 +30,6 @@ interface WithdrawalRequest {
   status: string;
   requested_at: string;
   admin_notes?: string;
-  profiles?: {
-    full_name: string;
-    email: string;
-  } | null;
 }
 
 const Admin = () => {
@@ -85,52 +74,23 @@ const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch payment submissions with user details
+      // Fetch payment submissions
       const { data: payments, error: paymentsError } = await supabase
         .from('payment_submissions')
-        .select(`
-          *,
-          profiles!inner(full_name, email),
-          goals!inner(title)
-        `)
+        .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (paymentsError) {
-        console.error('Payments error:', paymentsError);
-        // Fallback to basic fetch without joins
-        const { data: basicPayments, error: basicError } = await supabase
-          .from('payment_submissions')
-          .select('*')
-          .order('submitted_at', { ascending: false });
-        
-        if (basicError) throw basicError;
-        setPaymentSubmissions(basicPayments || []);
-      } else {
-        setPaymentSubmissions(payments || []);
-      }
+      if (paymentsError) throw paymentsError;
+      setPaymentSubmissions(payments || []);
 
-      // Fetch withdrawal requests with user details
+      // Fetch withdrawal requests
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          *,
-          profiles!inner(full_name, email)
-        `)
+        .select('*')
         .order('requested_at', { ascending: false });
 
-      if (withdrawalsError) {
-        console.error('Withdrawals error:', withdrawalsError);
-        // Fallback to basic fetch without joins
-        const { data: basicWithdrawals, error: basicError } = await supabase
-          .from('withdrawal_requests')
-          .select('*')
-          .order('requested_at', { ascending: false });
-        
-        if (basicError) throw basicError;
-        setWithdrawalRequests(basicWithdrawals || []);
-      } else {
-        setWithdrawalRequests(withdrawals || []);
-      }
+      if (withdrawalsError) throw withdrawalsError;
+      setWithdrawalRequests(withdrawals || []);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -369,9 +329,9 @@ const PaymentSubmissionCard = ({
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-lg">{submission.goals?.title || 'Unknown Goal'}</CardTitle>
+            <CardTitle className="text-lg">Payment Submission</CardTitle>
             <CardDescription>
-              User: {submission.profiles?.full_name || 'Unknown'} ({submission.profiles?.email || 'No email'})
+              User ID: {submission.user_id}
             </CardDescription>
           </div>
           <Badge variant={submission.status === 'pending' ? 'secondary' : 
@@ -461,7 +421,7 @@ const WithdrawalRequestCard = ({
           <div>
             <CardTitle className="text-lg">Withdrawal Request</CardTitle>
             <CardDescription>
-              User: {request.profiles?.full_name || 'Unknown'} ({request.profiles?.email || 'No email'})
+              User ID: {request.user_id}
             </CardDescription>
           </div>
           <Badge variant={request.status === 'pending' ? 'secondary' : 
