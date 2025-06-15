@@ -6,17 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { FinancialOverview } from "./FinancialOverview";
 import { GoalsGrid } from "./GoalsGrid";
 import { EmptyGoalsState } from "./EmptyGoalsState";
+import type { Database } from "@/integrations/supabase/types";
 
-interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  target_amount: number | null;
-  current_amount: number | null;
-  deadline: string | null;
-  status: string;
-  created_at: string;
-}
+type Goal = Database['public']['Tables']['goals']['Row'];
 
 interface GoalsDisplayProps {
   refreshTrigger?: number;

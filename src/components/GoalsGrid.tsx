@@ -2,17 +2,9 @@
 import { Badge } from "@/components/ui/badge";
 import { GoalCard } from "./GoalCard";
 import { GoalTasks } from "./GoalTasks";
+import type { Database } from "@/integrations/supabase/types";
 
-interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  target_amount: number | null;
-  current_amount: number | null;
-  deadline: string | null;
-  status: string;
-  created_at: string;
-}
+type Goal = Database['public']['Tables']['goals']['Row'];
 
 interface GoalsGridProps {
   goals: Goal[];
@@ -43,9 +35,7 @@ export const GoalsGrid = ({
           <div key={goal.id} className="space-y-4">
             <GoalCard
               goal={goal}
-              isExpanded={expandedGoal === goal.id}
-              onToggleExpansion={onToggleGoalExpansion}
-              onDelete={onDeleteGoal}
+              onView={onToggleGoalExpansion}
             />
 
             {/* Show tasks when goal is expanded */}
